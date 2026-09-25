@@ -5,6 +5,7 @@ import { dataHora } from '../format';
 import type { Motivo, Produto, Usuario } from '../types';
 import Modal from '../components/Modal';
 import Erro from '../components/Erro';
+import Cabecalho from '../components/Cabecalho';
 
 type Aba = 'produtos' | 'motivos' | 'usuarios';
 
@@ -14,7 +15,7 @@ export default function Cadastros() {
   const [aba, setAba] = useState<Aba>('produtos');
   return (
     <div className="pagina">
-      <h1>Cadastros</h1>
+      <Cabecalho sobre="Controle" titulo="Cadastros" descricao="Produtos, motivos de SAC e quem pode usar o sistema." />
       <div className="abas">
         <button className={aba === 'produtos' ? 'on' : ''} onClick={() => setAba('produtos')}>Produtos</button>
         <button className={aba === 'motivos' ? 'on' : ''} onClick={() => setAba('motivos')}>Motivos</button>

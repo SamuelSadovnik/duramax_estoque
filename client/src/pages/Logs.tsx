@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import { api, qs } from '../api';
 import { baixarCsv, dataHora } from '../format';
 import type { Log } from '../types';
+import { Download } from 'lucide-react';
 import SacDetalheModal from '../components/SacDetalheModal';
+import Cabecalho from '../components/Cabecalho';
 
 const ENT: Record<string, string> = { sac: 'SAC', produto: 'Produto / estoque', usuario: 'Usuário', motivo: 'Motivo' };
 
@@ -19,11 +21,9 @@ export default function Logs() {
 
   return (
     <div className="pagina">
-      <div className="topo">
-        <h1>Histórico / Logs</h1>
-        <button className="sec" onClick={() => baixarCsv('logs.csv', ['Data', 'Usuário', 'Área', 'ID', 'Ação', 'Detalhes'],
-          logs.map((l) => [dataHora(l.data), l.usuario_nome, ENT[l.entidade] ?? l.entidade, l.entidade_id, l.acao, l.detalhes]))}>Exportar Excel</button>
-      </div>
+      <Cabecalho sobre="Controle" titulo="Histórico" descricao="Tudo o que foi feito no sistema, por quem e quando."
+        acoes={<button className="btn sec" onClick={() => baixarCsv('logs.csv', ['Data', 'Usuário', 'Área', 'ID', 'Ação', 'Detalhes'],
+          logs.map((l) => [dataHora(l.data), l.usuario_nome, ENT[l.entidade] ?? l.entidade, l.entidade_id, l.acao, l.detalhes]))}><Download size={16} /> Exportar Excel</button>} />
       <div className="cartao">
         <div className="barra-filtros">
           <select value={f.entidade} onChange={set('entidade')}>
@@ -39,7 +39,7 @@ export default function Logs() {
           <tbody>
             {logs.map((l) => (
               <tr key={l.id}>
-                <td className="nowrap">{dataHora(l.data)}</td>
+                <td className="nowrap mono suave">{dataHora(l.data)}</td>
                 <td>{l.usuario_nome ?? '—'}</td>
                 <td>{l.entidade === 'sac' && l.entidade_id
                   ? <button className="link" onClick={() => setDetalhe(l.entidade_id!)}>SAC (abrir)</button>

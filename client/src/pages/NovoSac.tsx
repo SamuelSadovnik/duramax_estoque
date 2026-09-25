@@ -3,7 +3,9 @@ import { Link } from 'react-router-dom';
 import { api } from '../api';
 import { num } from '../format';
 import type { Motivo, Produto, Sac } from '../types';
+import { CircleHelp, CircleX, Truck, CheckCircle2 } from 'lucide-react';
 import Erro from '../components/Erro';
+import Cabecalho from '../components/Cabecalho';
 
 type Volta = 'sim' | 'nao' | 'indefinido';
 
@@ -67,12 +69,13 @@ export default function NovoSac() {
     return (
       <div className="pagina estreita">
         <div className="cartao sucesso">
-          <h1>SAC #{salvo.numero} lançado</h1>
+          <CheckCircle2 className="sucesso-icone" size={36} />
+          <h1>SAC <span className="mono">#{salvo.numero}</span> lançado</h1>
           <p>{salvo.cliente} · {num(salvo.quantidade)} × {salvo.produto_descricao}</p>
           <p>{msg}</p>
           <div className="botoes esq">
-            <button onClick={limpar}>Lançar outro SAC</button>
-            <Link className="botao sec" to="/sac/abertos">Ver SACs em aberto</Link>
+            <button className="btn primario" onClick={limpar}>Lançar outro SAC</button>
+            <Link className="btn sec" to="/sac/abertos">Ver SACs em aberto</Link>
           </div>
         </div>
       </div>
@@ -81,8 +84,8 @@ export default function NovoSac() {
 
   return (
     <div className="pagina estreita">
-      <h1>Lançar SAC</h1>
-      <form className="form cartao" onSubmit={salvar}>
+      <Cabecalho sobre="Novo registro" titulo="Lançar SAC" descricao="Preencha o que o cliente informou. Leva menos de um minuto." />
+      <form className="form cartao folga" onSubmit={salvar}>
         <label>Cliente
           <input list="lista-clientes" autoFocus value={cliente} onChange={(e) => setCliente(e.target.value)}
             placeholder="Ex.: LM TINTAS" required />
@@ -116,13 +119,13 @@ export default function NovoSac() {
           <legend>Vai voltar pra fábrica?</legend>
           <div className="opcoes-volta">
             <button type="button" className={`opcao ${volta === 'sim' ? 'on sim' : ''}`} onClick={() => setVolta('sim')}>
-              <b>Sim</b><small>Entra no estoque quando chegar</small>
+              <Truck size={22} /><b>Sim, vai voltar</b><small>Fica “a caminho” e entra no estoque quando chegar</small>
             </button>
             <button type="button" className={`opcao ${volta === 'nao' ? 'on nao' : ''}`} onClick={() => setVolta('nao')}>
-              <b>Não</b><small>Resolve agora, não mexe no estoque</small>
+              <CircleX size={22} /><b>Não volta</b><small>Resolve agora, sem mexer no estoque</small>
             </button>
             <button type="button" className={`opcao ${volta === 'indefinido' ? 'on ind' : ''}`} onClick={() => setVolta('indefinido')}>
-              <b>Ainda não sei</b><small>Decide depois</small>
+              <CircleHelp size={22} /><b>Ainda não sei</b><small>Fica “sem definição” pra decidir depois</small>
             </button>
           </div>
         </fieldset>
@@ -145,7 +148,7 @@ export default function NovoSac() {
 
         <Erro msg={erro} />
         <div className="botoes">
-          <button disabled={salvando}>Lançar SAC</button>
+          <button className="btn primario grande" disabled={salvando}>{salvando ? 'Lançando…' : 'Lançar SAC'}</button>
         </div>
       </form>
     </div>

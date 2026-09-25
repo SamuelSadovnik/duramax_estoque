@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import { api, qs } from '../api';
 import { baixarCsv, data, dataHora, num } from '../format';
 import { STATUS_LABEL, type Motivo, type Produto, type Sac } from '../types';
+import { Download } from 'lucide-react';
 import StatusBadge from '../components/StatusBadge';
+import Cabecalho from '../components/Cabecalho';
 import SacDetalheModal from '../components/SacDetalheModal';
 
 export default function SacsResolvidos() {
@@ -35,10 +37,8 @@ export default function SacsResolvidos() {
 
   return (
     <div className="pagina">
-      <div className="topo">
-        <h1>SACs resolvidos</h1>
-        <button className="sec" onClick={exportar}>Exportar Excel</button>
-      </div>
+      <Cabecalho sobre="Histórico" titulo="SACs resolvidos" descricao="SACs que chegaram na fábrica, foram resolvidos sem retorno ou cancelados."
+        acoes={<button className="btn sec" onClick={exportar}><Download size={16} /> Exportar Excel</button>} />
       <div className="cartao">
         <div className="barra-filtros">
           <select value={f.status} onChange={set('status')}>
@@ -67,7 +67,7 @@ export default function SacsResolvidos() {
           <tbody>
             {sacs.map((s) => (
               <tr key={s.id} className="clicavel" onClick={() => setDetalhe(s.id)}>
-                <td>#{s.numero}</td>
+                <td className="mono">#{s.numero}</td>
                 <td><StatusBadge status={s.status} /></td>
                 <td>{s.cliente}</td>
                 <td>{s.produto_descricao}</td>

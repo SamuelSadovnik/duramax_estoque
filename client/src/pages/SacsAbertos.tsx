@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Plus } from 'lucide-react';
+import Cabecalho from '../components/Cabecalho';
 import { api } from '../api';
 import { data, num } from '../format';
 import type { Sac } from '../types';
@@ -31,8 +33,8 @@ export default function SacsAbertos() {
 
   const linha = (s: Sac, botoes: React.ReactNode) => (
     <tr key={s.id}>
-      <td><button className="link" onClick={() => setDetalhe(s.id)}>#{s.numero}</button></td>
-      <td>{data(s.data_abertura)}</td>
+      <td><button className="link mono" onClick={() => setDetalhe(s.id)}>#{s.numero}</button></td>
+      <td className="mono suave">{data(s.data_abertura)}</td>
       <td>{s.cliente}</td>
       <td>{s.produto_descricao}</td>
       <td className="n forte">{num(s.quantidade)}</td>
@@ -47,22 +49,24 @@ export default function SacsAbertos() {
 
   return (
     <div className="pagina">
-      <div className="topo">
-        <h1>SACs em aberto</h1>
-        <input className="busca" placeholder="Buscar SAC, cliente ou produto…" value={busca} onChange={(e) => setBusca(e.target.value)} />
-      </div>
+      <Cabecalho sobre="Acompanhamento" titulo="SACs em aberto"
+        descricao="Material que ainda não chegou ou que ainda não se sabe se volta."
+        acoes={<>
+          <input className="busca" placeholder="Buscar SAC, cliente ou produto…" value={busca} onChange={(e) => setBusca(e.target.value)} />
+          <Link to="/sac/novo" className="btn primario"><Plus size={18} /> Lançar SAC</Link>
+        </>} />
       {aviso && <div className="alerta ok" onClick={() => setAviso(null)}>{aviso}</div>}
 
       <div className="cartao">
-        <h2>A caminho da fábrica <span className="contador">{aCaminho.length}</span></h2>
+        <h2><span className="ponto cam" />A caminho da fábrica <span className="contador">{aCaminho.length}</span></h2>
         <p className="ajuda">Material que vai voltar. Quando chegar, clique em <b>Chegou</b> e informe a nota. O estoque sobe na hora.</p>
         <table>
           {cab}
           <tbody>
             {aCaminho.map((s) => linha(s, <>
-              <button className="mini" onClick={() => setAcao({ sac: s, tipo: 'chegou' })}>Chegou</button>
-              <button className="mini sec" onClick={() => setAcao({ sac: s, tipo: 'nao-volta' })}>Não vai voltar</button>
-              <button className="mini fantasma" onClick={() => setAcao({ sac: s, tipo: 'cancelar' })}>Cancelar</button>
+              <button className="btn mini primario" onClick={() => setAcao({ sac: s, tipo: 'chegou' })}>Chegou</button>
+              <button className="btn mini sec" onClick={() => setAcao({ sac: s, tipo: 'nao-volta' })}>Não vai voltar</button>
+              <button className="btn mini fantasma" onClick={() => setAcao({ sac: s, tipo: 'cancelar' })}>Cancelar</button>
             </>))}
             {!aCaminho.length && <tr><td colSpan={8} className="vazio">Nenhum material a caminho</td></tr>}
           </tbody>
@@ -70,16 +74,16 @@ export default function SacsAbertos() {
       </div>
 
       <div className="cartao">
-        <h2>Sem definição <span className="contador ind">{semDef.length}</span></h2>
+        <h2><span className="ponto ind" />Sem definição <span className="contador">{semDef.length}</span></h2>
         <p className="ajuda">Ainda não se sabe se o material volta pra fábrica.</p>
         <table>
           {cab}
           <tbody>
             {semDef.map((s) => linha(s, <>
-              <button className="mini" onClick={() => vaiVoltar(s)}>Vai voltar</button>
-              <button className="mini sec" onClick={() => setAcao({ sac: s, tipo: 'nao-volta' })}>Não volta</button>
-              <button className="mini sec" onClick={() => setAcao({ sac: s, tipo: 'chegou' })}>Já chegou</button>
-              <button className="mini fantasma" onClick={() => setAcao({ sac: s, tipo: 'cancelar' })}>Cancelar</button>
+              <button className="btn mini primario" onClick={() => vaiVoltar(s)}>Vai voltar</button>
+              <button className="btn mini sec" onClick={() => setAcao({ sac: s, tipo: 'nao-volta' })}>Não volta</button>
+              <button className="btn mini sec" onClick={() => setAcao({ sac: s, tipo: 'chegou' })}>Já chegou</button>
+              <button className="btn mini fantasma" onClick={() => setAcao({ sac: s, tipo: 'cancelar' })}>Cancelar</button>
             </>))}
             {!semDef.length && <tr><td colSpan={8} className="vazio">Tudo definido</td></tr>}
           </tbody>

@@ -12,9 +12,32 @@ type Params = unknown[];
 interface Executor { query(sql: string, params?: Params): Promise<{ rows: any[] }> }
 interface Driver extends Executor { transaction<T>(fn: (tx: Executor) => Promise<T>): Promise<T> }
 
+/** Nome da variável de ambiente usada para o banco (para diagnóstico) */
+export let variavelBanco: string | null = null;
+
+function urlValida(v: string | undefined): boolean {
+  if (!v || !/^postgres(ql)?:\/\//i.test(v)) return false;
+  try {
+    const host = new URL(v).hostname;
+    return !!host && host !== 'host' && host !== 'localhost:5432';
+  } catch { return false; }
+}
+
+/** Acha a conexão do Postgres: DATABASE_URL, POSTGRES_URL ou qualquer variável criada pela integração do Neon (com prefixo) */
+function acharUrlBanco(): { nome: string; url: string } | null {
+  const env = process.env;
+  const prioridade = ['DATABASE_URL', 'POSTGRES_URL', 'NEON_DATABASE_URL'];
+  const outras = Object.keys(env).filter((k) => /(_DATABASE_URL|_POSTGRES_URL|_URL)$/.test(k) && !prioridade.includes(k))
+    .sort((a, b) => Number(/UNPOOLED|NON_POOLING/.test(a)) - Number(/UNPOOLED|NON_POOLING/.test(b)));
+  for (const nome of [...prioridade, ...outras]) if (urlValida(env[nome])) return { nome, url: env[nome]! };
+  return null;
+}
+
 async function criarDriver(): Promise<Driver> {
-  const url = process.env.DATABASE_URL ?? process.env.POSTGRES_URL;
-  if (url) {
+  const achado = acharUrlBanco();
+  if (achado) {
+    variavelBanco = achado.nome;
+    const url = achado.url;
     const { Pool } = await import('pg');
     const pool = new Pool({ connectionString: url, max: 3 });
     return {
@@ -33,6 +56,11 @@ async function criarDriver(): Promise<Driver> {
       },
     };
   }
+  if (process.env.VERCEL) {
+    throw new ErroBanco('Banco de dados não configurado na Vercel. Conecte o Neon ao projeto (Storage → Connect Project) e faça Redeploy. '
+      + (process.env.DATABASE_URL ? 'A variável DATABASE_URL existe, mas o valor não é uma conexão Postgres válida — apague-a e conecte o Neon de novo.' : ''));
+  }
+  variavelBanco = 'local (pasta data/)';
   const { PGlite } = await import('@electric-sql/pglite');
   const pasta = process.env.DB_PATH ?? join(process.cwd(), 'data', 'pglite');
   mkdirSync(pasta, { recursive: true });
@@ -42,6 +70,9 @@ async function criarDriver(): Promise<Driver> {
     transaction: (fn) => lite.transaction((tx) => fn({ query: (s, p) => tx.query(s, p) })),
   };
 }
+
+/** Erro de conexão/configuração do banco, mostrado na tela com a causa */
+export class ErroBanco extends Error {}
 
 let driver: Driver;
 const txAtual = new AsyncLocalStorage<Executor>();
@@ -177,7 +208,11 @@ async function iniciar() {
 let pronto: Promise<void> | null = null;
 /** Garante que o banco está conectado e com as tabelas criadas (1x por processo) */
 export function bancoPronto(): Promise<void> {
-  pronto ??= iniciar().catch((e) => { pronto = null; throw e; });
+  pronto ??= iniciar().catch((e) => {
+    pronto = null;
+    console.error('[banco] falha ao iniciar:', e);
+    throw e instanceof ErroBanco ? e : new ErroBanco(`Não foi possível conectar ao banco de dados (${variavelBanco ?? 'sem variável'}): ${e?.message ?? e}`);
+  });
   return pronto;
 }
 

@@ -1,5 +1,5 @@
 import express, { type NextFunction, type Request, type Response } from 'express';
-import { agora, bancoPronto, registrarLog, sql, sql1, transacao, type UsuarioSessao } from './db';
+import { agora, bancoPronto, ErroBanco, registrarLog, sql, sql1, transacao, variavelBanco, type UsuarioSessao } from './db';
 import { conferirSenha, hashSenha, novoToken } from './auth';
 
 type Req = Request & { usuario?: UsuarioSessao };
@@ -11,6 +11,16 @@ const falha = (status: number, msg: string): never => { throw new ErroApp(status
 
 const app = express();
 app.use(express.json());
+// Diagnóstico: abra /api/saude no navegador para ver se o banco está conectado
+app.get('/api/saude', async (_req, res) => {
+  try {
+    await bancoPronto();
+    const r = await sql1<{ usuarios: number }>('SELECT COUNT(*)::int AS usuarios FROM usuarios');
+    res.json({ ok: true, banco: variavelBanco, usuarios: r?.usuarios, hora: agora() });
+  } catch (e) {
+    res.status(503).json({ ok: false, banco: variavelBanco, erro: (e as Error).message });
+  }
+});
 app.use('/api', async (_req, _res, next) => { try { await bancoPronto(); next(); } catch (e) { next(e); } });
 
 // ---------------- Helpers ----------------
@@ -413,6 +423,7 @@ app.use('/api', (_req, _res, next) => next(new ErroApp(404, 'Rota não encontrad
 
 app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
   if (err instanceof ErroApp) return res.status(err.status).json({ erro: err.message });
+  if (err instanceof ErroBanco) return res.status(503).json({ erro: err.message });
   console.error(err);
   res.status(500).json({ erro: 'Erro interno no servidor' });
 });

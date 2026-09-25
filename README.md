@@ -10,8 +10,10 @@ cada material devolvido fica **sem definição**, **a caminho da fábrica** ou *
 ## Publicar na Vercel
 1. Na Vercel: **Add New → Project** e importe este repositório (as configurações já estão no `vercel.json`).
 2. No projeto: **Storage → Create Database → Neon (Postgres)** e conecte ao projeto. A Vercel cria a variável `DATABASE_URL` sozinha.
+   - Se a Vercel disser que `DATABASE_URL` já existe, apague essa variável em Environment Variables (ela veio do `.env.example`) e conecte de novo.
 3. Faça **Redeploy**. As tabelas são criadas no primeiro acesso.
-4. Entre com **admin / admin123**, troque a senha em "Trocar senha" e cadastre os usuários em Cadastros → Usuários.
+4. Para conferir, abra `https://SEU-SITE.vercel.app/api/saude` — deve mostrar `"ok": true`.
+5. Entre com **admin / admin123**, troque a senha em "Trocar senha" e cadastre os usuários em Cadastros → Usuários.
 
 ## Rodar no computador
 Requisito: Node.js 22 ou mais novo (LTS) (https://nodejs.org).

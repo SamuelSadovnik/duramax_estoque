@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { ArrowRight, Download, HelpCircle, PackageCheck, Plus, Truck } from 'lucide-react';
+import Cabecalho from '../components/Cabecalho';
 import { api, qs } from '../api';
 import { baixarCsv, dataHora, num } from '../format';
 import type { Movimentacao, Produto } from '../types';
@@ -29,23 +31,37 @@ export default function Estoque() {
 
   return (
     <div className="pagina">
-      <div className="topo">
-        <h1>Estoque originado de SAC</h1>
-        <Link to="/sac/novo" className="botao">+ Lançar SAC</Link>
-      </div>
+      <Cabecalho sobre="Visão geral" titulo="Estoque originado de SAC"
+        descricao="Todo material devolvido passa por aqui até entrar no estoque."
+        acoes={<Link to="/sac/novo" className="btn primario"><Plus size={18} /> Lançar SAC</Link>} />
 
-      <div className="kpis">
-        <div className="kpi"><span>Em estoque</span><strong>{num(tot.saldo)}</strong><small>já chegou na fábrica</small></div>
-        <div className="kpi cam"><span>A caminho</span><strong>{num(tot.cam)}</strong><small>vai voltar, ainda não chegou</small></div>
-        <div className="kpi ind"><span>Sem definição</span><strong>{num(tot.ind)}</strong><small>não decidido se volta</small></div>
-      </div>
+      <section className="fluxo" aria-label="Fluxo do material devolvido">
+        <Link to="/sac/abertos" className="etapa ind">
+          <span className="etapa-rotulo"><HelpCircle size={16} /> Sem definição</span>
+          <strong className="etapa-num">{num(tot.ind)}</strong>
+          <span className="etapa-sub">ninguém decidiu se volta</span>
+        </Link>
+        <ArrowRight className="fluxo-seta" size={22} aria-hidden />
+        <Link to="/sac/abertos" className="etapa cam">
+          <span className="etapa-rotulo"><Truck size={16} /> A caminho</span>
+          <strong className="etapa-num">{num(tot.cam)}</strong>
+          <span className="etapa-sub">vai voltar pra fábrica</span>
+        </Link>
+        <ArrowRight className="fluxo-seta" size={22} aria-hidden />
+        <div className="etapa ok">
+          <span className="etapa-rotulo"><PackageCheck size={16} /> Em estoque</span>
+          <strong className="etapa-num">{num(tot.saldo)}</strong>
+          <span className="etapa-sub">chegou e a nota foi lançada</span>
+        </div>
+      </section>
 
       <div className="cartao">
         <div className="barra-filtros">
-          <input placeholder="Buscar produto…" value={busca} onChange={(e) => setBusca(e.target.value)} />
-          <button className="sec" onClick={() => baixarCsv('estoque-sac.csv',
+          <h2>Produtos</h2>
+          <input className="busca" placeholder="Buscar produto…" value={busca} onChange={(e) => setBusca(e.target.value)} />
+          <button className="btn sec" onClick={() => baixarCsv('estoque-sac.csv',
             ['Código', 'Produto', 'Unidade', 'Em estoque', 'A caminho', 'Sem definição'],
-            lista.map((p) => [p.codigo, p.descricao, p.unidade, p.saldo, p.a_caminho, p.sem_definicao]))}>Exportar Excel</button>
+            lista.map((p) => [p.codigo, p.descricao, p.unidade, p.saldo, p.a_caminho, p.sem_definicao]))}><Download size={16} /> Excel</button>
         </div>
         <table>
           <thead>
@@ -54,7 +70,7 @@ export default function Estoque() {
           <tbody>
             {lista.map((p) => (
               <tr key={p.id} className={p.ativo ? '' : 'inativo'}>
-                <td>{p.codigo}</td>
+                <td className="mono">{p.codigo}</td>
                 <td>{p.descricao}</td>
                 <td>{p.unidade}</td>
                 <td className="n forte">{num(p.saldo)}</td>
@@ -86,11 +102,11 @@ export default function Estoque() {
           <tbody>
             {movs.map((m) => (
               <tr key={m.id} className={m.estornada ? 'riscado' : ''}>
-                <td>{dataHora(m.data)}</td>
+                <td className="mono suave">{dataHora(m.data)}</td>
                 <td><span className={`tag t-${m.tipo.toLowerCase()}`}>{TIPO[m.tipo]}</span></td>
-                <td>{m.produto_codigo}</td>
+                <td className="mono">{m.produto_codigo}</td>
                 <td className={`n forte ${m.quantidade < 0 ? 'neg' : 'pos'}`}>{m.quantidade > 0 ? '+' : ''}{num(m.quantidade)}</td>
-                <td>{m.nota ?? '—'}</td>
+                <td className="mono">{m.nota ?? '—'}</td>
                 <td>{m.sac_numero ? <button className="link" onClick={() => setSacAberto(m.sac_id!)}>#{m.sac_numero} · {m.sac_cliente}</button> : '—'}</td>
                 <td>{m.motivo ?? '—'}</td>
                 <td>{m.usuario_nome}</td>
