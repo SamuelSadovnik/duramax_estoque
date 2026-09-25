@@ -21,7 +21,7 @@ export default function Logs() {
 
   return (
     <div className="pagina">
-      <Cabecalho sobre="Controle" titulo="Histórico" descricao="Tudo o que foi feito no sistema, por quem e quando."
+      <Cabecalho titulo="Histórico" descricao="Tudo o que foi feito no sistema, por quem e quando."
         acoes={<button className="btn sec" onClick={() => baixarCsv('logs.csv', ['Data', 'Usuário', 'Área', 'ID', 'Ação', 'Detalhes'],
           logs.map((l) => [dataHora(l.data), l.usuario_nome, ENT[l.entidade] ?? l.entidade, l.entidade_id, l.acao, l.detalhes]))}><Download size={16} /> Exportar Excel</button>} />
       <div className="cartao">

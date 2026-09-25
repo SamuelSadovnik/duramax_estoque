@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ArrowRight, Eye, EyeOff } from 'lucide-react';
-import { api, setToken } from '../api';
+import { api } from '../api';
 import type { Usuario } from '../types';
 
 export default function Login({ onEntrar }: { onEntrar: (u: Usuario) => void }) {
@@ -14,24 +14,22 @@ export default function Login({ onEntrar }: { onEntrar: (u: Usuario) => void }) 
     e.preventDefault();
     setErro(null); setEntrando(true);
     try {
-      const r = await api<{ token: string; usuario: Usuario }>('/login', { body: { login, senha } });
-      setToken(r.token);
+      const r = await api<{ usuario: Usuario }>('/login', { body: { login, senha } });
+      setSenha('');
       onEntrar(r.usuario);
     } catch (err) { setErro((err as Error).message); } finally { setEntrando(false); }
   }
 
   return (
     <div className="login">
-      <section className="login-farol" aria-hidden>
-        <div className="facho" />
-        <img className="farol-simbolo" src="/farol.png" alt="" />
+      <section className="login-lado" aria-hidden>
+        <img src="/logo-branco.png" alt="" />
       </section>
 
       <section className="login-painel">
         <form className="login-form" onSubmit={entrar}>
-          <img className="login-logo" src="/logo.png" alt="Duramax Tintas & Vernizes" />
           <h1>Entrar</h1>
-          <p className="descricao">Controle do estoque originado de SAC.</p>
+          <p className="descricao">Estoque originado de SAC</p>
 
           <label className="campo">
             <span>Usuário</span>

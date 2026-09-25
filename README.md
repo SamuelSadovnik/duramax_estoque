@@ -13,7 +13,7 @@ cada material devolvido fica **sem definição**, **a caminho da fábrica** ou *
    - Se a Vercel disser que `DATABASE_URL` já existe, apague essa variável em Environment Variables (ela veio do `.env.example`) e conecte de novo.
 3. Faça **Redeploy**. As tabelas são criadas no primeiro acesso.
 4. Para conferir, abra `https://SEU-SITE.vercel.app/api/saude` — deve mostrar `"ok": true`.
-5. Entre com **admin / admin123**, troque a senha em "Trocar senha" e cadastre os usuários em Cadastros → Usuários.
+5. Entre com **admin / admin123**. O sistema obriga a criar uma senha nova nesse primeiro acesso.
 
 ## Rodar no computador
 Requisito: Node.js 22 ou mais novo (LTS) (https://nodejs.org).
@@ -35,3 +35,11 @@ Sem `DATABASE_URL`, os dados ficam na pasta `data/`. Para usar o mesmo banco da 
 
 O saldo nunca é digitado: é a soma das movimentações (entradas de SAC, ajustes e estornos).
 Lançou errado? Use **Estornar**: nada é apagado, tudo fica no histórico.
+
+## Segurança
+- Senhas guardadas com scrypt (nunca em texto). Mínimo 8 caracteres com letras e números; senhas comuns são recusadas.
+- Senha criada ou redefinida pelo administrador é provisória: a pessoa cria a própria no primeiro acesso.
+- 5 senhas erradas seguidas bloqueiam o usuário por 15 min; no máximo 30 tentativas por IP a cada 15 min.
+- Sessão em cookie HttpOnly + SameSite=Strict (o JavaScript da página não lê o token); no banco fica só o hash do token.
+- Sessão expira com 12 h sem uso ou 7 dias no máximo. Trocar a senha desconecta os outros computadores.
+- Proteção contra CSRF, cabeçalhos de segurança (CSP, HSTS, X-Frame-Options) e registro de logins e falhas no Histórico.

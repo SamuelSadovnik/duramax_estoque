@@ -84,7 +84,7 @@ export default function NovoSac() {
 
   return (
     <div className="pagina estreita">
-      <Cabecalho sobre="Novo registro" titulo="Lançar SAC" descricao="Preencha o que o cliente informou. Leva menos de um minuto." />
+      <Cabecalho titulo="Lançar SAC" descricao="Registre a devolução informada pelo cliente." />
       <form className="form cartao folga" onSubmit={salvar}>
         <label>Cliente
           <input list="lista-clientes" autoFocus value={cliente} onChange={(e) => setCliente(e.target.value)}

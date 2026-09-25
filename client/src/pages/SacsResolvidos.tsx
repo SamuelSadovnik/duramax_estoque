@@ -37,7 +37,7 @@ export default function SacsResolvidos() {
 
   return (
     <div className="pagina">
-      <Cabecalho sobre="Histórico" titulo="SACs resolvidos" descricao="SACs que chegaram na fábrica, foram resolvidos sem retorno ou cancelados."
+      <Cabecalho titulo="SACs resolvidos" descricao="SACs que chegaram na fábrica, foram resolvidos sem retorno ou cancelados."
         acoes={<button className="btn sec" onClick={exportar}><Download size={16} /> Exportar Excel</button>} />
       <div className="cartao">
         <div className="barra-filtros">

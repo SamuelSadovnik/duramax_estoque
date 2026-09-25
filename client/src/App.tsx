@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { Boxes, CheckCheck, History, KeyRound, LogOut, Plus, Settings2, Truck } from 'lucide-react';
-import { api, getToken, onSessaoExpirada, setToken } from './api';
+import { api, onSessaoExpirada } from './api';
 import type { Usuario } from './types';
 import Login from './pages/Login';
 import Estoque from './pages/Estoque';
@@ -10,7 +10,7 @@ import SacsAbertos from './pages/SacsAbertos';
 import SacsResolvidos from './pages/SacsResolvidos';
 import Logs from './pages/Logs';
 import Cadastros from './pages/Cadastros';
-import MinhaSenha from './pages/MinhaSenha';
+import MinhaSenha, { TrocaObrigatoria } from './pages/MinhaSenha';
 
 interface Ctx { usuario: Usuario; sair: () => void }
 const AuthCtx = createContext<Ctx | null>(null);
@@ -24,20 +24,18 @@ export default function App() {
   const { pathname } = useLocation();
 
   useEffect(() => {
-    onSessaoExpirada(() => { setToken(null); setUsuario(null); });
-    if (!getToken()) { setCarregando(false); return; }
-    api<Usuario>('/me').then(setUsuario).catch(() => setToken(null)).finally(() => setCarregando(false));
+    onSessaoExpirada(() => setUsuario(null));
+    api<Usuario>('/me').then(setUsuario).catch(() => setUsuario(null)).finally(() => setCarregando(false));
   }, []);
   useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
 
   const sair = () => {
-    api('/logout', { method: 'POST' }).catch(() => {});
-    setToken(null);
-    setUsuario(null);
+    api('/logout', { method: 'POST' }).catch(() => {}).finally(() => setUsuario(null));
   };
 
   if (carregando) return <div className="carregando"><span className="pulso" /></div>;
   if (!usuario) return <Login onEntrar={(u) => setUsuario(u)} />;
+  if (usuario.trocar_senha) return <TrocaObrigatoria usuario={usuario} onFeito={() => setUsuario({ ...usuario, trocar_senha: 0 })} onSair={sair} />;
 
   return (
     <AuthCtx.Provider value={{ usuario, sair }}>
@@ -45,14 +43,13 @@ export default function App() {
         <aside className="lateral">
           <div className="lateral-marca">
             <img src="/logo-branco.png" alt="Duramax Tintas & Vernizes" />
-            <span>Estoque de SAC</span>
+            
           </div>
-
-          <NavLink to="/sac/novo" className="btn-lancar"><Plus size={18} strokeWidth={2.5} /> Lançar SAC</NavLink>
 
           <nav className="lateral-nav" aria-label="Menu principal">
             <div className="nav-grupo">Operação</div>
             <NavLink to="/" end><Boxes size={18} /> Estoque</NavLink>
+            <NavLink to="/sac/novo"><Plus size={18} /> Lançar SAC</NavLink>
             <NavLink to="/sac/abertos"><Truck size={18} /> SACs em aberto</NavLink>
             <NavLink to="/sac/resolvidos"><CheckCheck size={18} /> SACs resolvidos</NavLink>
             <div className="nav-grupo">Controle</div>

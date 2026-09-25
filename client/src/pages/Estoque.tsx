@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Download, HelpCircle, PackageCheck, Plus, Truck } from 'lucide-react';
+import { Download, Plus } from 'lucide-react';
 import Cabecalho from '../components/Cabecalho';
 import { api, qs } from '../api';
 import { baixarCsv, dataHora, num } from '../format';
@@ -31,25 +31,23 @@ export default function Estoque() {
 
   return (
     <div className="pagina">
-      <Cabecalho sobre="Visão geral" titulo="Estoque originado de SAC"
-        descricao="Todo material devolvido passa por aqui até entrar no estoque."
+      <Cabecalho titulo="Estoque originado de SAC"
+        descricao="Quantidade de material devolvido por situação."
         acoes={<Link to="/sac/novo" className="btn primario"><Plus size={18} /> Lançar SAC</Link>} />
 
       <section className="fluxo" aria-label="Fluxo do material devolvido">
         <Link to="/sac/abertos" className="etapa ind">
-          <span className="etapa-rotulo"><HelpCircle size={16} /> Sem definição</span>
+          <span className="etapa-rotulo"><span className="ponto ind" />Sem definição</span>
           <strong className="etapa-num">{num(tot.ind)}</strong>
-          <span className="etapa-sub">ninguém decidiu se volta</span>
+          <span className="etapa-sub">aguardando decisão se volta</span>
         </Link>
-        <ArrowRight className="fluxo-seta" size={22} aria-hidden />
         <Link to="/sac/abertos" className="etapa cam">
-          <span className="etapa-rotulo"><Truck size={16} /> A caminho</span>
+          <span className="etapa-rotulo"><span className="ponto cam" />A caminho</span>
           <strong className="etapa-num">{num(tot.cam)}</strong>
           <span className="etapa-sub">vai voltar pra fábrica</span>
         </Link>
-        <ArrowRight className="fluxo-seta" size={22} aria-hidden />
         <div className="etapa ok">
-          <span className="etapa-rotulo"><PackageCheck size={16} /> Em estoque</span>
+          <span className="etapa-rotulo"><span className="ponto ok" />Em estoque</span>
           <strong className="etapa-num">{num(tot.saldo)}</strong>
           <span className="etapa-sub">chegou e a nota foi lançada</span>
         </div>

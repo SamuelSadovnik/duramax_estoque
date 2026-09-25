@@ -184,6 +184,21 @@ CREATE TABLE IF NOT EXISTS logs (
   detalhes TEXT
 );
 CREATE INDEX IF NOT EXISTS ix_logs_entidade ON logs (entidade, entidade_id);
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS trocar_senha INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS falhas INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS bloqueado_ate DOUBLE PRECISION;
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS senha_alterada_em TEXT;
+ALTER TABLE sessoes ADD COLUMN IF NOT EXISTS expira_em DOUBLE PRECISION;
+ALTER TABLE sessoes ADD COLUMN IF NOT EXISTS ultimo_uso DOUBLE PRECISION;
+ALTER TABLE sessoes ADD COLUMN IF NOT EXISTS ip TEXT;
+DELETE FROM sessoes WHERE expira_em IS NULL;
+CREATE TABLE IF NOT EXISTS tentativas_login (
+  id SERIAL PRIMARY KEY,
+  ip TEXT NOT NULL,
+  momento DOUBLE PRECISION NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ix_tentativas_ip ON tentativas_login (ip, momento);
+UPDATE usuarios SET trocar_senha = 1 WHERE lower(login) = 'admin' AND senha_alterada_em IS NULL;
 `;
 
 async function iniciar() {
@@ -192,7 +207,8 @@ async function iniciar() {
 
   const conta = async (t: string) => (await sql1<{ n: number }>(`SELECT COUNT(*)::int AS n FROM ${t}`))!.n;
   if (!(await conta('usuarios'))) {
-    await sql('INSERT INTO usuarios (nome, login, senha_hash, perfil, criado_em) VALUES ($1,$2,$3,$4,$5)',
+    // Senha inicial conhecida (admin123), mas o sistema obriga a trocar no primeiro login
+    await sql('INSERT INTO usuarios (nome, login, senha_hash, perfil, criado_em, trocar_senha) VALUES ($1,$2,$3,$4,$5,1)',
       ['Administrador', 'admin', hashSenha('admin123'), 'admin', agora()]);
   }
   if (!(await conta('motivos'))) {
@@ -216,7 +232,7 @@ export function bancoPronto(): Promise<void> {
   return pronto;
 }
 
-export interface UsuarioSessao { id: number; nome: string; login: string; perfil: 'admin' | 'operador' }
+export interface UsuarioSessao { id: number; nome: string; login: string; perfil: 'admin' | 'operador'; trocar_senha?: number; sessao?: string }
 
 export async function registrarLog(u: UsuarioSessao | null, entidade: string, entidadeId: number | null, acao: string, detalhes?: string) {
   await sql('INSERT INTO logs (data, usuario_id, usuario_nome, entidade, entidade_id, acao, detalhes) VALUES ($1,$2,$3,$4,$5,$6,$7)',

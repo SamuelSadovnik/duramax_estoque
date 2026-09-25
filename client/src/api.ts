@@ -1,12 +1,4 @@
-const CHAVE = 'duramax-sac-token';
-
-export function getToken(): string | null {
-  try { return localStorage.getItem(CHAVE); } catch { return null; }
-}
-export function setToken(t: string | null) {
-  try { t ? localStorage.setItem(CHAVE, t) : localStorage.removeItem(CHAVE); } catch { /* ignora */ }
-}
-
+// A sessão fica num cookie HttpOnly (o JavaScript da página não consegue ler o token).
 export class ErroApi extends Error {
   constructor(public status: number, msg: string) { super(msg); }
 }
@@ -15,18 +7,20 @@ let aoExpirar: () => void = () => {};
 export function onSessaoExpirada(fn: () => void) { aoExpirar = fn; }
 
 export async function api<T = unknown>(caminho: string, opcoes: { method?: string; body?: unknown } = {}): Promise<T> {
-  const token = getToken();
-  const r = await fetch(`/api${caminho}`, {
-    method: opcoes.method ?? (opcoes.body ? 'POST' : 'GET'),
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: opcoes.body ? JSON.stringify(opcoes.body) : undefined,
-  });
+  let r: Response;
+  try {
+    r = await fetch(`/api${caminho}`, {
+      method: opcoes.method ?? (opcoes.body ? 'POST' : 'GET'),
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'duramax' },
+      body: opcoes.body ? JSON.stringify(opcoes.body) : undefined,
+    });
+  } catch {
+    throw new ErroApi(0, 'Sem conexão com o servidor. Verifique a internet e tente de novo.');
+  }
   const dados = await r.json().catch(() => ({}));
   if (!r.ok) {
-    if (r.status === 401 && caminho !== '/login') aoExpirar();
+    if (r.status === 401 && caminho !== '/login' && caminho !== '/me') aoExpirar();
     throw new ErroApi(r.status, dados.erro ?? `Erro ${r.status}`);
   }
   return dados as T;

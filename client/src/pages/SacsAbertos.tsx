@@ -49,7 +49,7 @@ export default function SacsAbertos() {
 
   return (
     <div className="pagina">
-      <Cabecalho sobre="Acompanhamento" titulo="SACs em aberto"
+      <Cabecalho titulo="SACs em aberto"
         descricao="Material que ainda não chegou ou que ainda não se sabe se volta."
         acoes={<>
           <input className="busca" placeholder="Buscar SAC, cliente ou produto…" value={busca} onChange={(e) => setBusca(e.target.value)} />

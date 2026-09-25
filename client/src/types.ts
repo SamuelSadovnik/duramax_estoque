@@ -1,5 +1,8 @@
 export type Perfil = 'admin' | 'operador';
-export interface Usuario { id: number; nome: string; login: string; perfil: Perfil; ativo?: number; criado_em?: string }
+export interface Usuario {
+  id: number; nome: string; login: string; perfil: Perfil; ativo?: number; criado_em?: string;
+  trocar_senha?: number; senha_alterada_em?: string | null; bloqueado?: boolean;
+}
 export interface Produto {
   id: number; codigo: string; descricao: string; unidade: string; cod_barras: string | null;
   embalagem: number | null; ativo: number; saldo: number; a_caminho: number; sem_definicao: number; criado_em: string; atualizado_em: string;

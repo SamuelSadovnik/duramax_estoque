@@ -1,6 +1,6 @@
 import express, { type NextFunction, type Request, type Response } from 'express';
 import { agora, bancoPronto, ErroBanco, registrarLog, sql, sql1, transacao, variavelBanco, type UsuarioSessao } from './db';
-import { conferirSenha, hashSenha, novoToken } from './auth';
+import { conferirSenha, HASH_FALSO, hashSenha, hashToken, novoToken, precisaRehash, validarSenha } from './auth';
 
 type Req = Request & { usuario?: UsuarioSessao };
 
@@ -10,7 +10,26 @@ class ErroApp extends Error {
 const falha = (status: number, msg: string): never => { throw new ErroApp(status, msg); };
 
 const app = express();
-app.use(express.json());
+app.set('trust proxy', true);
+app.disable('x-powered-by');
+
+// Cabeçalhos de segurança em todas as respostas da API
+app.use('/api', (_req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'");
+  next();
+});
+app.use(express.json({ limit: '50kb' }));
+
+// Proteção contra CSRF: toda requisição que altera dados precisa do cabeçalho enviado pelo próprio sistema
+app.use('/api', (req, _res, next) => {
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method) && req.get('x-requested-with') !== 'duramax')
+    return next(new ErroApp(403, 'Requisição bloqueada.'));
+  next();
+});
 // Diagnóstico: abra /api/saude no navegador para ver se o banco está conectado
 app.get('/api/saude', async (_req, res) => {
   try {
@@ -40,52 +59,125 @@ const LABEL_STATUS: Record<string, string> = {
   ABERTO: 'Sem definição', AGUARDANDO: 'A caminho da fábrica', RECEBIDO: 'Recebido na fábrica',
   SEM_RETORNO: 'Resolvido sem retorno', CANCELADO: 'Cancelado',
 };
-const tokenDe = (req: Request) => (req.headers.authorization ?? '').replace(/^Bearer\s+/i, '');
 
 // ---------------- Autenticação ----------------
+const COOKIE = 'sac_sessao';
+const SESSAO_MAX_MS = 7 * 24 * 3600 * 1000;   // sessão dura no máximo 7 dias
+const SESSAO_OCIOSA_MS = 12 * 3600 * 1000;     // e expira após 12 h sem uso
+const MAX_FALHAS = 5;                          // 5 senhas erradas seguidas…
+const BLOQUEIO_MS = 15 * 60 * 1000;            // …bloqueiam o usuário por 15 min
+const MAX_TENTATIVAS_IP = 30;                  // e no máximo 30 tentativas por IP a cada 15 min
+
+function lerCookie(req: Request, nome: string): string | null {
+  for (const parte of (req.headers.cookie ?? '').split(';')) {
+    const [k, ...v] = parte.trim().split('=');
+    if (k === nome) return decodeURIComponent(v.join('='));
+  }
+  return null;
+}
+function gravarCookie(req: Request, res: Response, valor: string, maxAgeMs: number) {
+  const seguro = req.secure || req.get('x-forwarded-proto') === 'https';
+  res.append('Set-Cookie', `${COOKIE}=${encodeURIComponent(valor)}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${Math.floor(maxAgeMs / 1000)}${seguro ? '; Secure' : ''}`);
+}
+const ipDe = (req: Request) => (req.ip ?? 'desconhecido').slice(0, 64);
+const semSenha = (u: any): UsuarioSessao => ({ id: u.id, nome: u.nome, login: u.login, perfil: u.perfil, trocar_senha: u.trocar_senha });
+
 app.post('/api/login', async (req, res) => {
-  const login = texto(req.body?.login, 'login')!;
-  const senha = String(req.body?.senha ?? '');
-  const u = await sql1('SELECT * FROM usuarios WHERE lower(login) = lower($1) AND ativo = 1', [login]);
-  if (!u || !conferirSenha(senha, u.senha_hash)) falha(401, 'Login ou senha inválidos');
+  const login = String(req.body?.login ?? '').trim().slice(0, 100);
+  const senha = String(req.body?.senha ?? '').slice(0, 200);
+  const ip = ipDe(req);
+  const agoraMs = Date.now();
+  if (!login || !senha) falha(400, 'Informe usuário e senha.');
+
+  // Limite por IP (contra robôs testando senhas)
+  await sql('DELETE FROM tentativas_login WHERE momento < $1', [agoraMs - BLOQUEIO_MS]);
+  const porIp = (await sql1<{ n: number }>('SELECT COUNT(*)::int AS n FROM tentativas_login WHERE ip = $1', [ip]))!.n;
+  if (porIp >= MAX_TENTATIVAS_IP) falha(429, 'Muitas tentativas. Aguarde 15 minutos e tente de novo.');
+
+  const u = await sql1('SELECT * FROM usuarios WHERE lower(login) = lower($1)', [login]);
+  if (u?.bloqueado_ate && u.bloqueado_ate > agoraMs) {
+    const min = Math.ceil((u.bloqueado_ate - agoraMs) / 60000);
+    falha(429, `Usuário bloqueado por excesso de tentativas. Tente de novo em ${min} min ou peça a um administrador para redefinir a senha.`);
+  }
+  // Sempre calcula um hash, mesmo sem usuário, para não revelar pelo tempo quais logins existem
+  const ok = conferirSenha(senha, u?.senha_hash ?? HASH_FALSO) && !!u && u.ativo === 1;
+  if (!ok) {
+    await sql('INSERT INTO tentativas_login (ip, momento) VALUES ($1,$2)', [ip, agoraMs]);
+    if (u) {
+      const falhas = (u.falhas ?? 0) + 1;
+      const bloquear = falhas >= MAX_FALHAS;
+      await sql('UPDATE usuarios SET falhas = $1, bloqueado_ate = $2 WHERE id = $3',
+        [bloquear ? 0 : falhas, bloquear ? agoraMs + BLOQUEIO_MS : null, u.id]);
+      await registrarLog(null, 'usuario', u.id, bloquear ? 'Usuário bloqueado' : 'Login falhou',
+        `${u.login} · IP ${ip}${bloquear ? ` · ${MAX_FALHAS} senhas erradas, bloqueado por 15 min` : ''}`);
+    }
+    falha(401, 'Usuário ou senha incorretos.');
+  }
+
+  // Senha certa: zera falhas, atualiza o hash se for antigo e obriga troca se a senha for fraca
+  const fraca = validarSenha(senha, u.login, u.nome) !== null;
+  await sql('UPDATE usuarios SET falhas = 0, bloqueado_ate = NULL, trocar_senha = CASE WHEN $1 THEN 1 ELSE trocar_senha END WHERE id = $2', [fraca, u.id]);
+  if (precisaRehash(u.senha_hash)) await sql('UPDATE usuarios SET senha_hash = $1 WHERE id = $2', [hashSenha(senha), u.id]);
+  await sql('DELETE FROM sessoes WHERE expira_em < $1 OR ultimo_uso < $2', [agoraMs, agoraMs - SESSAO_OCIOSA_MS]);
+
   const token = novoToken();
-  await sql('INSERT INTO sessoes (token, usuario_id, criado_em) VALUES ($1,$2,$3)', [token, u.id, agora()]);
-  const sessao: UsuarioSessao = { id: u.id, nome: u.nome, login: u.login, perfil: u.perfil };
-  await registrarLog(sessao, 'usuario', u.id, 'Login');
-  res.json({ token, usuario: sessao });
+  await sql('INSERT INTO sessoes (token, usuario_id, criado_em, expira_em, ultimo_uso, ip) VALUES ($1,$2,$3,$4,$5,$6)',
+    [hashToken(token), u.id, agora(), agoraMs + SESSAO_MAX_MS, agoraMs, ip]);
+  gravarCookie(req, res, token, SESSAO_MAX_MS);
+  const sessao = semSenha({ ...u, trocar_senha: fraca ? 1 : u.trocar_senha });
+  await registrarLog(sessao, 'usuario', u.id, 'Login', `IP ${ip}`);
+  res.json({ usuario: sessao });
 });
 
 app.use('/api', async (req: Req, _res, next) => {
-  const token = tokenDe(req);
-  if (!token) return next(new ErroApp(401, 'Não autenticado'));
-  const u = await sql1(`SELECT u.id, u.nome, u.login, u.perfil FROM sessoes s
-    JOIN usuarios u ON u.id = s.usuario_id WHERE s.token = $1 AND u.ativo = 1`, [token]);
-  if (!u) return next(new ErroApp(401, 'Sessão expirada, faça login novamente'));
-  req.usuario = { ...u };
-  next();
+  try {
+    const token = lerCookie(req, COOKIE);
+    if (!token) return next(new ErroApp(401, 'Faça login para continuar.'));
+    const agoraMs = Date.now();
+    const th = hashToken(token);
+    const u = await sql1(`SELECT u.id, u.nome, u.login, u.perfil, u.trocar_senha, s.ultimo_uso FROM sessoes s
+      JOIN usuarios u ON u.id = s.usuario_id
+      WHERE s.token = $1 AND u.ativo = 1 AND s.expira_em > $2 AND s.ultimo_uso > $3`, [th, agoraMs, agoraMs - SESSAO_OCIOSA_MS]);
+    if (!u) return next(new ErroApp(401, 'Sua sessão expirou. Faça login de novo.'));
+    if (agoraMs - u.ultimo_uso > 5 * 60 * 1000) await sql('UPDATE sessoes SET ultimo_uso = $1 WHERE token = $2', [agoraMs, th]);
+    req.usuario = { ...semSenha(u), sessao: th };
+    // Enquanto não trocar a senha provisória, só pode trocar a senha ou sair
+    if (u.trocar_senha && !['/api/me', '/api/logout', '/api/minha-senha'].includes(req.originalUrl.split('?')[0]))
+      return next(new ErroApp(403, 'Troque sua senha para continuar.'));
+    next();
+  } catch (e) { next(e); }
 });
 const soAdmin = (req: Req, _res: Response, next: NextFunction) =>
   req.usuario?.perfil === 'admin' ? next() : next(new ErroApp(403, 'Apenas administradores'));
 
-app.get('/api/me', (req: Req, res) => { res.json(usuario(req)); });
-app.post('/api/logout', async (req, res) => {
-  await sql('DELETE FROM sessoes WHERE token = $1', [tokenDe(req)]);
+app.get('/api/me', (req: Req, res) => { const { sessao, ...u } = usuario(req); res.json(u); });
+app.post('/api/logout', async (req: Req, res) => {
+  await sql('DELETE FROM sessoes WHERE token = $1', [usuario(req).sessao]);
+  gravarCookie(req, res, '', 0);
   res.json({ ok: true });
 });
 app.post('/api/minha-senha', async (req: Req, res) => {
   const u = usuario(req);
+  const atual = String(req.body?.atual ?? '');
   const nova = String(req.body?.nova ?? '');
-  if (nova.length < 4) falha(400, 'A nova senha precisa ter ao menos 4 caracteres');
   const row = await sql1('SELECT senha_hash FROM usuarios WHERE id = $1', [u.id]);
-  if (!conferirSenha(String(req.body?.atual ?? ''), row.senha_hash)) falha(400, 'Senha atual incorreta');
-  await sql('UPDATE usuarios SET senha_hash = $1 WHERE id = $2', [hashSenha(nova), u.id]);
-  await registrarLog(u, 'usuario', u.id, 'Alterou a própria senha');
+  if (!conferirSenha(atual, row.senha_hash)) falha(400, 'A senha atual está incorreta.');
+  const erro = validarSenha(nova, u.login, u.nome);
+  if (erro) falha(400, erro);
+  if (conferirSenha(nova, row.senha_hash)) falha(400, 'A nova senha precisa ser diferente da atual.');
+  await transacao(async () => {
+    await sql('UPDATE usuarios SET senha_hash = $1, trocar_senha = 0, senha_alterada_em = $2 WHERE id = $3', [hashSenha(nova), agora(), u.id]);
+    // Encerra as outras sessões abertas desse usuário (outros computadores)
+    await sql('DELETE FROM sessoes WHERE usuario_id = $1 AND token <> $2', [u.id, u.sessao]);
+    await registrarLog(u, 'usuario', u.id, 'Alterou a própria senha', 'Outras sessões encerradas');
+  });
   res.json({ ok: true });
 });
 
 // ---------------- Usuários ----------------
 app.get('/api/usuarios', soAdmin, async (_req, res) => {
-  res.json(await sql('SELECT id, nome, login, perfil, ativo, criado_em FROM usuarios ORDER BY nome'));
+  res.json(await sql(`SELECT id, nome, login, perfil, ativo, criado_em, trocar_senha, senha_alterada_em,
+    (bloqueado_ate IS NOT NULL AND bloqueado_ate > $1) AS bloqueado FROM usuarios ORDER BY nome`, [Date.now()]));
 });
 app.post('/api/usuarios', soAdmin, async (req: Req, res) => {
   const u = usuario(req);
@@ -93,9 +185,12 @@ app.post('/api/usuarios', soAdmin, async (req: Req, res) => {
   const login = texto(req.body?.login, 'login')!;
   const senha = String(req.body?.senha ?? '');
   const perfil = req.body?.perfil === 'admin' ? 'admin' : 'operador';
-  if (senha.length < 4) falha(400, 'A senha precisa ter ao menos 4 caracteres');
+  if (!/^[a-zA-Z0-9._-]{3,40}$/.test(login)) falha(400, 'O login deve ter de 3 a 40 caracteres: letras, números, ponto, hífen ou sublinhado.');
+  const erro = validarSenha(senha, login, nome);
+  if (erro) falha(400, erro);
   if (await sql1('SELECT 1 FROM usuarios WHERE lower(login) = lower($1)', [login])) falha(400, 'Esse login já existe');
-  const r = (await sql1('INSERT INTO usuarios (nome, login, senha_hash, perfil, criado_em) VALUES ($1,$2,$3,$4,$5) RETURNING id',
+  // Senha definida pelo administrador é provisória: o usuário troca no primeiro acesso
+  const r = (await sql1('INSERT INTO usuarios (nome, login, senha_hash, perfil, criado_em, trocar_senha) VALUES ($1,$2,$3,$4,$5,1) RETURNING id',
     [nome, login, hashSenha(senha), perfil, agora()]))!;
   await registrarLog(u, 'usuario', r.id, 'Cadastrou usuário', `${nome} (${login}), perfil ${perfil}`);
   res.json({ id: r.id });
@@ -115,11 +210,14 @@ app.put('/api/usuarios/:id', soAdmin, async (req: Req, res) => {
   await transacao(async () => {
     await sql('UPDATE usuarios SET nome = $1, perfil = $2, ativo = $3 WHERE id = $4', [nome, perfil, ativo, id]);
     if (req.body?.senha) {
-      if (String(req.body.senha).length < 4) falha(400, 'A senha precisa ter ao menos 4 caracteres');
-      await sql('UPDATE usuarios SET senha_hash = $1 WHERE id = $2', [hashSenha(String(req.body.senha)), id]);
-      mud.push('senha redefinida');
+      const erro = validarSenha(String(req.body.senha), at.login, nome);
+      if (erro) falha(400, erro);
+      // Senha redefinida é provisória, desbloqueia o usuário e derruba as sessões dele
+      await sql('UPDATE usuarios SET senha_hash = $1, trocar_senha = 1, falhas = 0, bloqueado_ate = NULL WHERE id = $2', [hashSenha(String(req.body.senha)), id]);
+      await sql('DELETE FROM sessoes WHERE usuario_id = $1', [id]);
+      mud.push('senha redefinida (provisória)');
     }
-    if (!ativo) await sql('DELETE FROM sessoes WHERE usuario_id = $1', [id]);
+    if (!ativo || perfil !== at.perfil) await sql('DELETE FROM sessoes WHERE usuario_id = $1', [id]);
     if (mud.length) await registrarLog(u, 'usuario', id, 'Alterou usuário', `${at.login}: ${mud.join('; ')}`);
   });
   res.json({ ok: true });
