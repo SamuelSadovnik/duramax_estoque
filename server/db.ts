@@ -198,7 +198,7 @@ CREATE TABLE IF NOT EXISTS tentativas_login (
   momento DOUBLE PRECISION NOT NULL
 );
 CREATE INDEX IF NOT EXISTS ix_tentativas_ip ON tentativas_login (ip, momento);
-UPDATE usuarios SET trocar_senha = 1 WHERE lower(login) = 'admin' AND senha_alterada_em IS NULL;
+UPDATE usuarios SET trocar_senha = 0 WHERE trocar_senha <> 0;
 `;
 
 async function iniciar() {
@@ -207,8 +207,7 @@ async function iniciar() {
 
   const conta = async (t: string) => (await sql1<{ n: number }>(`SELECT COUNT(*)::int AS n FROM ${t}`))!.n;
   if (!(await conta('usuarios'))) {
-    // Senha inicial conhecida (admin123), mas o sistema obriga a trocar no primeiro login
-    await sql('INSERT INTO usuarios (nome, login, senha_hash, perfil, criado_em, trocar_senha) VALUES ($1,$2,$3,$4,$5,1)',
+    await sql('INSERT INTO usuarios (nome, login, senha_hash, perfil, criado_em) VALUES ($1,$2,$3,$4,$5)',
       ['Administrador', 'admin', hashSenha('admin123'), 'admin', agora()]);
   }
   if (!(await conta('motivos'))) {

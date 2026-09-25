@@ -5,14 +5,14 @@ import { api, onSessaoExpirada } from './api';
 import type { Usuario } from './types';
 import Login from './pages/Login';
 import Estoque from './pages/Estoque';
-import NovoSac from './pages/NovoSac';
+import LancarSacModal from './components/LancarSacModal';
 import SacsAbertos from './pages/SacsAbertos';
 import SacsResolvidos from './pages/SacsResolvidos';
 import Logs from './pages/Logs';
 import Cadastros from './pages/Cadastros';
-import MinhaSenha, { TrocaObrigatoria } from './pages/MinhaSenha';
+import MinhaSenha from './pages/MinhaSenha';
 
-interface Ctx { usuario: Usuario; sair: () => void }
+interface Ctx { usuario: Usuario; sair: () => void; lancarSac: () => void }
 const AuthCtx = createContext<Ctx | null>(null);
 export const useAuth = () => useContext(AuthCtx)!;
 
@@ -21,6 +21,7 @@ const iniciais = (nome: string) => nome.split(/\s+/).filter(Boolean).slice(0, 2)
 export default function App() {
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [carregando, setCarregando] = useState(true);
+  const [lancando, setLancando] = useState(false);
   const { pathname } = useLocation();
 
   useEffect(() => {
@@ -35,10 +36,9 @@ export default function App() {
 
   if (carregando) return <div className="carregando"><span className="pulso" /></div>;
   if (!usuario) return <Login onEntrar={(u) => setUsuario(u)} />;
-  if (usuario.trocar_senha) return <TrocaObrigatoria usuario={usuario} onFeito={() => setUsuario({ ...usuario, trocar_senha: 0 })} onSair={sair} />;
 
   return (
-    <AuthCtx.Provider value={{ usuario, sair }}>
+    <AuthCtx.Provider value={{ usuario, sair, lancarSac: () => setLancando(true) }}>
       <div className="app">
         <aside className="lateral">
           <div className="lateral-marca">
@@ -49,7 +49,7 @@ export default function App() {
           <nav className="lateral-nav" aria-label="Menu principal">
             <div className="nav-grupo">Operação</div>
             <NavLink to="/" end><Boxes size={18} /> Estoque</NavLink>
-            <NavLink to="/sac/novo"><Plus size={18} /> Lançar SAC</NavLink>
+            <button className="nav-botao" onClick={() => setLancando(true)}><Plus size={18} /> Lançar SAC</button>
             <NavLink to="/sac/abertos"><Truck size={18} /> SACs em aberto</NavLink>
             <NavLink to="/sac/resolvidos"><CheckCheck size={18} /> SACs resolvidos</NavLink>
             <div className="nav-grupo">Controle</div>
@@ -71,7 +71,6 @@ export default function App() {
         <main className="principal">
           <Routes>
             <Route path="/" element={<Estoque />} />
-            <Route path="/sac/novo" element={<NovoSac />} />
             <Route path="/sac/abertos" element={<SacsAbertos />} />
             <Route path="/sac/resolvidos" element={<SacsResolvidos />} />
             <Route path="/logs" element={<Logs />} />
@@ -81,6 +80,7 @@ export default function App() {
           </Routes>
         </main>
       </div>
+      {lancando && <LancarSacModal onFechar={() => setLancando(false)} />}
     </AuthCtx.Provider>
   );
 }

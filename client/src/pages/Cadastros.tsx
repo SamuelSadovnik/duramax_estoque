@@ -142,7 +142,7 @@ function Usuarios() {
           {lista.map((u) => (
             <tr key={u.id} className={u.ativo ? '' : 'inativo'}>
               <td>{u.nome}</td><td>{u.login}</td><td>{u.perfil === 'admin' ? 'Administrador' : 'Operador'}</td>
-              <td>{!u.ativo ? 'Inativo' : u.bloqueado ? <span className="badge st-cancelado">Bloqueado</span> : u.trocar_senha ? <span className="badge st-aberto">Senha provisória</span> : 'Ativo'}</td><td>{dataHora(u.criado_em)}</td>
+              <td>{!u.ativo ? 'Inativo' : u.bloqueado ? <span className="badge st-cancelado">Bloqueado</span> : 'Ativo'}</td><td>{dataHora(u.criado_em)}</td>
               <td className="acoes"><button className="mini sec" onClick={() => setEdit(u)}>Editar</button></td>
             </tr>
           ))}
@@ -168,9 +168,9 @@ function UsuarioModal({ u, onFechar, onFeito }: { u: Partial<Usuario>; onFechar:
       <form className="form" onSubmit={salvar}>
         <label>Nome<input autoFocus value={v.nome} onChange={(e) => setV({ ...v, nome: e.target.value })} required /></label>
         <label>Login<input value={v.login} disabled={!!u.id} onChange={(e) => setV({ ...v, login: e.target.value })} required /></label>
-        <label>{u.id ? 'Redefinir senha (deixe vazio para manter)' : 'Senha provisória'}
+        <label>{u.id ? 'Nova senha (deixe vazio para manter)' : 'Senha'}
           <input type="password" autoComplete="new-password" value={v.senha} onChange={(e) => setV({ ...v, senha: e.target.value })} required={!u.id} minLength={8} maxLength={128} />
-          <small className="suave">Mínimo 8 caracteres, com letras e números. A pessoa vai criar a própria senha no primeiro acesso.</small>
+          <small className="suave">Mínimo 8 caracteres, com letras e números.</small>
         </label>
         <label>Perfil
           <select value={v.perfil} onChange={(e) => setV({ ...v, perfil: e.target.value as Usuario['perfil'] })}>

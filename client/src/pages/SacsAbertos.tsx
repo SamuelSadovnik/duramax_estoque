@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import Cabecalho from '../components/Cabecalho';
+import { useAuth } from '../App';
 import { api } from '../api';
 import { data, num } from '../format';
 import type { Sac } from '../types';
@@ -19,6 +20,8 @@ export default function SacsAbertos() {
 
   const carregar = useCallback(() => { api<Sac[]>('/sacs?grupo=abertos').then(setSacs); }, []);
   useEffect(carregar, [carregar]);
+  useEffect(() => { window.addEventListener('sac-alterado', carregar); return () => window.removeEventListener('sac-alterado', carregar); }, [carregar]);
+  const { lancarSac } = useAuth();
 
   const filtrar = (s: Sac) => !busca || `${s.numero} ${s.cliente} ${s.produto_descricao}`.toLowerCase().includes(busca.toLowerCase());
   const aCaminho = sacs.filter((s) => s.status === 'AGUARDANDO' && filtrar(s));
@@ -53,7 +56,7 @@ export default function SacsAbertos() {
         descricao="Material que ainda não chegou ou que ainda não se sabe se volta."
         acoes={<>
           <input className="busca" placeholder="Buscar SAC, cliente ou produto…" value={busca} onChange={(e) => setBusca(e.target.value)} />
-          <Link to="/sac/novo" className="btn primario"><Plus size={18} /> Lançar SAC</Link>
+          <button className="btn primario" onClick={lancarSac}><Plus size={18} /> Lançar SAC</button>
         </>} />
       {aviso && <div className="alerta ok" onClick={() => setAviso(null)}>{aviso}</div>}
 
@@ -90,7 +93,7 @@ export default function SacsAbertos() {
         </table>
       </div>
 
-      {!sacs.length && <p className="ajuda">Nenhum SAC em aberto. <Link to="/sac/novo">Lançar SAC</Link></p>}
+      {!sacs.length && <p className="ajuda">Nenhum SAC em aberto. <button className="link" onClick={lancarSac}>Lançar SAC</button></p>}
 
       {acao && (
         <AcoesSac sac={acao.sac} acao={acao.tipo} onFechar={() => setAcao(null)}

@@ -114,9 +114,8 @@ app.post('/api/login', async (req, res) => {
     falha(401, 'Usuário ou senha incorretos.');
   }
 
-  // Senha certa: zera falhas, atualiza o hash se for antigo e obriga troca se a senha for fraca
-  const fraca = validarSenha(senha, u.login, u.nome) !== null;
-  await sql('UPDATE usuarios SET falhas = 0, bloqueado_ate = NULL, trocar_senha = CASE WHEN $1 THEN 1 ELSE trocar_senha END WHERE id = $2', [fraca, u.id]);
+  // Senha certa: zera as falhas e atualiza o hash se estiver no formato antigo
+  await sql('UPDATE usuarios SET falhas = 0, bloqueado_ate = NULL WHERE id = $1', [u.id]);
   if (precisaRehash(u.senha_hash)) await sql('UPDATE usuarios SET senha_hash = $1 WHERE id = $2', [hashSenha(senha), u.id]);
   await sql('DELETE FROM sessoes WHERE expira_em < $1 OR ultimo_uso < $2', [agoraMs, agoraMs - SESSAO_OCIOSA_MS]);
 
@@ -124,7 +123,7 @@ app.post('/api/login', async (req, res) => {
   await sql('INSERT INTO sessoes (token, usuario_id, criado_em, expira_em, ultimo_uso, ip) VALUES ($1,$2,$3,$4,$5,$6)',
     [hashToken(token), u.id, agora(), agoraMs + SESSAO_MAX_MS, agoraMs, ip]);
   gravarCookie(req, res, token, SESSAO_MAX_MS);
-  const sessao = semSenha({ ...u, trocar_senha: fraca ? 1 : u.trocar_senha });
+  const sessao = semSenha(u);
   await registrarLog(sessao, 'usuario', u.id, 'Login', `IP ${ip}`);
   res.json({ usuario: sessao });
 });
@@ -141,9 +140,6 @@ app.use('/api', async (req: Req, _res, next) => {
     if (!u) return next(new ErroApp(401, 'Sua sessão expirou. Faça login de novo.'));
     if (agoraMs - u.ultimo_uso > 5 * 60 * 1000) await sql('UPDATE sessoes SET ultimo_uso = $1 WHERE token = $2', [agoraMs, th]);
     req.usuario = { ...semSenha(u), sessao: th };
-    // Enquanto não trocar a senha provisória, só pode trocar a senha ou sair
-    if (u.trocar_senha && !['/api/me', '/api/logout', '/api/minha-senha'].includes(req.originalUrl.split('?')[0]))
-      return next(new ErroApp(403, 'Troque sua senha para continuar.'));
     next();
   } catch (e) { next(e); }
 });
@@ -189,8 +185,7 @@ app.post('/api/usuarios', soAdmin, async (req: Req, res) => {
   const erro = validarSenha(senha, login, nome);
   if (erro) falha(400, erro);
   if (await sql1('SELECT 1 FROM usuarios WHERE lower(login) = lower($1)', [login])) falha(400, 'Esse login já existe');
-  // Senha definida pelo administrador é provisória: o usuário troca no primeiro acesso
-  const r = (await sql1('INSERT INTO usuarios (nome, login, senha_hash, perfil, criado_em, trocar_senha) VALUES ($1,$2,$3,$4,$5,1) RETURNING id',
+  const r = (await sql1('INSERT INTO usuarios (nome, login, senha_hash, perfil, criado_em) VALUES ($1,$2,$3,$4,$5) RETURNING id',
     [nome, login, hashSenha(senha), perfil, agora()]))!;
   await registrarLog(u, 'usuario', r.id, 'Cadastrou usuário', `${nome} (${login}), perfil ${perfil}`);
   res.json({ id: r.id });
@@ -212,10 +207,10 @@ app.put('/api/usuarios/:id', soAdmin, async (req: Req, res) => {
     if (req.body?.senha) {
       const erro = validarSenha(String(req.body.senha), at.login, nome);
       if (erro) falha(400, erro);
-      // Senha redefinida é provisória, desbloqueia o usuário e derruba as sessões dele
-      await sql('UPDATE usuarios SET senha_hash = $1, trocar_senha = 1, falhas = 0, bloqueado_ate = NULL WHERE id = $2', [hashSenha(String(req.body.senha)), id]);
+      // Nova senha desbloqueia o usuário e derruba as sessões dele
+      await sql('UPDATE usuarios SET senha_hash = $1, falhas = 0, bloqueado_ate = NULL WHERE id = $2', [hashSenha(String(req.body.senha)), id]);
       await sql('DELETE FROM sessoes WHERE usuario_id = $1', [id]);
-      mud.push('senha redefinida (provisória)');
+      mud.push('senha redefinida');
     }
     if (!ativo || perfil !== at.perfil) await sql('DELETE FROM sessoes WHERE usuario_id = $1', [id]);
     if (mud.length) await registrarLog(u, 'usuario', id, 'Alterou usuário', `${at.login}: ${mud.join('; ')}`);

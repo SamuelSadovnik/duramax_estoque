@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Download, Plus } from 'lucide-react';
 import Cabecalho from '../components/Cabecalho';
+import { useAuth } from '../App';
 import { api, qs } from '../api';
 import { baixarCsv, dataHora, num } from '../format';
 import type { Movimentacao, Produto } from '../types';
@@ -25,6 +26,8 @@ export default function Estoque() {
     api<Movimentacao[]>(`/estoque/movimentacoes${qs({ produto_id: filtro })}`).then(setMovs);
   }, [filtro]);
   useEffect(carregar, [carregar]);
+  useEffect(() => { window.addEventListener('sac-alterado', carregar); return () => window.removeEventListener('sac-alterado', carregar); }, [carregar]);
+  const { lancarSac } = useAuth();
 
   const lista = produtos.filter((p) => !busca || `${p.codigo} ${p.descricao}`.toLowerCase().includes(busca.toLowerCase()));
   const tot = produtos.reduce((a, p) => ({ saldo: a.saldo + p.saldo, cam: a.cam + p.a_caminho, ind: a.ind + p.sem_definicao }), { saldo: 0, cam: 0, ind: 0 });
@@ -33,7 +36,7 @@ export default function Estoque() {
     <div className="pagina">
       <Cabecalho titulo="Estoque originado de SAC"
         descricao="Quantidade de material devolvido por situação."
-        acoes={<Link to="/sac/novo" className="btn primario"><Plus size={18} /> Lançar SAC</Link>} />
+        acoes={<button className="btn primario" onClick={lancarSac}><Plus size={18} /> Lançar SAC</button>} />
 
       <section className="fluxo" aria-label="Fluxo do material devolvido">
         <Link to="/sac/abertos" className="etapa ind">

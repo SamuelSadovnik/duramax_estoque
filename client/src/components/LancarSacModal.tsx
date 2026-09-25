@@ -1,15 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import Modal from './Modal';
 import { api } from '../api';
 import { num } from '../format';
 import type { Motivo, Produto, Sac } from '../types';
 import { CircleHelp, CircleX, Truck, CheckCircle2 } from 'lucide-react';
-import Erro from '../components/Erro';
-import Cabecalho from '../components/Cabecalho';
+import Erro from './Erro';
 
 type Volta = 'sim' | 'nao' | 'indefinido';
 
-export default function NovoSac() {
+/** Janela de lançamento de SAC (abre por cima da tela atual) */
+export default function LancarSacModal({ onFechar }: { onFechar: () => void }) {
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [motivos, setMotivos] = useState<Motivo[]>([]);
   const [clientes, setClientes] = useState<string[]>([]);
@@ -56,6 +57,7 @@ export default function NovoSac() {
         body: { cliente, produto_id: Number(produtoId), quantidade, motivo_ids: motivoIds, volta, resolucao, nf_venda: nfVenda, observacao: obs },
       });
       setSalvo(s);
+      window.dispatchEvent(new Event('sac-alterado')); // as telas abertas recarregam os números
       setClientes((c) => (c.includes(s.cliente) ? c : [...c, s.cliente].sort()));
     } catch (err) { setErro((err as Error).message); } finally { setSalvando(false); }
   }
@@ -67,25 +69,25 @@ export default function NovoSac() {
         ? 'SAC concluído sem retorno. O estoque não foi alterado.'
         : 'Ficou como "sem definição". Decida depois em SACs em aberto se volta ou não.';
     return (
-      <div className="pagina estreita">
-        <div className="cartao sucesso">
+      <Modal titulo="Lançar SAC" onFechar={onFechar}>
+        <div className="sucesso">
           <CheckCircle2 className="sucesso-icone" size={36} />
-          <h1>SAC <span className="mono">#{salvo.numero}</span> lançado</h1>
+          <h2>SAC <span className="mono">#{salvo.numero}</span> lançado</h2>
           <p>{salvo.cliente} · {num(salvo.quantidade)} × {salvo.produto_descricao}</p>
           <p>{msg}</p>
-          <div className="botoes esq">
-            <button className="btn primario" onClick={limpar}>Lançar outro SAC</button>
-            <Link className="btn sec" to="/sac/abertos">Ver SACs em aberto</Link>
+          <div className="botoes">
+            <Link className="btn sec" to="/sac/abertos" onClick={onFechar}>Ver SACs em aberto</Link>
+            <button className="btn sec" onClick={limpar}>Lançar outro</button>
+            <button className="btn primario" autoFocus onClick={onFechar}>Fechar</button>
           </div>
         </div>
-      </div>
+      </Modal>
     );
   }
 
   return (
-    <div className="pagina estreita">
-      <Cabecalho titulo="Lançar SAC" descricao="Registre a devolução informada pelo cliente." />
-      <form className="form cartao folga" onSubmit={salvar}>
+    <Modal titulo="Lançar SAC" onFechar={onFechar} largo>
+      <form className="form" onSubmit={salvar}>
         <label>Cliente
           <input list="lista-clientes" autoFocus value={cliente} onChange={(e) => setCliente(e.target.value)}
             placeholder="Ex.: LM TINTAS" required />
@@ -148,9 +150,10 @@ export default function NovoSac() {
 
         <Erro msg={erro} />
         <div className="botoes">
+          <button type="button" className="btn sec" onClick={onFechar}>Cancelar</button>
           <button className="btn primario grande" disabled={salvando}>{salvando ? 'Lançando…' : 'Lançar SAC'}</button>
         </div>
       </form>
-    </div>
+    </Modal>
   );
 }

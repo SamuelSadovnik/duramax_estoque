@@ -68,20 +68,3 @@ export default function MinhaSenha() {
     </div>
   );
 }
-
-/** Tela obrigatória no primeiro acesso ou quando a senha é provisória/fraca */
-export function TrocaObrigatoria({ usuario, onFeito, onSair }: { usuario: Usuario; onFeito: () => void; onSair: () => void }) {
-  return (
-    <div className="login">
-      <section className="login-lado" aria-hidden><img src="/logo-branco.png" alt="" /></section>
-      <section className="login-painel">
-        <div className="login-form">
-          <h1>Crie sua senha</h1>
-          <p className="descricao">Olá, {usuario.nome}. Sua senha atual é provisória. Crie uma senha pessoal para continuar.</p>
-          <FormSenha usuario={usuario} botao="Salvar e entrar" onFeito={onFeito} />
-          <button className="link" onClick={onSair}>Sair</button>
-        </div>
-      </section>
-    </div>
-  );
-}
