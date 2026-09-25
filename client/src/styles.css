@@ -58,13 +58,12 @@ h3 { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacin
    ============================================================ */
 .login { min-height: 100vh; display: grid; grid-template-columns: 1.1fr 1fr; background: var(--papel); }
 .login-farol {
-  position: relative; overflow: hidden; background: var(--noite); color: #fff;
-  display: flex; flex-direction: column; justify-content: flex-end; padding: 56px;
-  isolation: isolate;
+  position: relative; overflow: hidden; background: var(--noite);
+  display: grid; place-items: center; isolation: isolate;
 }
-/* facho de luz girando a partir da lâmpada do farol */
+/* facho de luz girando a partir do farol, bem no centro do painel */
 .facho {
-  position: absolute; z-index: -1; left: 50%; top: 38%; width: 240vmax; height: 240vmax;
+  position: absolute; z-index: -1; left: 50%; top: 50%; width: 240vmax; height: 240vmax;
   transform: translate(-50%, -50%);
   background: conic-gradient(from 0deg at 50% 50%,
     rgba(255,255,255,0) 0deg, rgba(255,236,200,.13) 8deg, rgba(255,255,255,0) 22deg,
@@ -73,20 +72,9 @@ h3 { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacin
 }
 @keyframes girar { to { transform: translate(-50%, -50%) rotate(360deg); } }
 .farol-simbolo {
-  position: absolute; left: 50%; top: 38%; width: min(34%, 230px); transform: translate(-50%, -50%);
-  filter: drop-shadow(0 20px 40px rgba(0,0,0,.35));
+  width: clamp(160px, 26%, 260px); height: auto; display: block;
+  filter: drop-shadow(0 24px 48px rgba(0,0,0,.4));
 }
-.login-farol::after { /* chão escuro para o texto respirar */
-  content: ''; position: absolute; inset: auto 0 0 0; height: 55%; z-index: -1;
-  background: linear-gradient(to top, var(--noite) 35%, rgba(24,33,63,0));
-}
-.login-tese p {
-  font-family: var(--display); font-stretch: 122%; font-weight: 800; font-size: clamp(30px, 3.4vw, 46px);
-  line-height: 1.02; letter-spacing: -0.02em; margin: 8px 0 26px;
-}
-.login-tese ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; max-width: 420px; }
-.login-tese li { display: flex; gap: 12px; align-items: baseline; color: #c3cae0; font-size: 14px; border-top: 1px solid rgba(255,255,255,.12); padding-top: 8px; }
-.login-tese li b { font-family: var(--mono); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: #fff; min-width: 120px; }
 
 .login-painel { display: grid; place-items: center; padding: 40px 24px; }
 .login-form { width: 100%; max-width: 380px; display: flex; flex-direction: column; gap: 16px; }
@@ -96,7 +84,6 @@ h3 { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacin
 .campo-senha { position: relative; }
 .campo-senha input { width: 100%; padding-right: 46px; }
 .campo-senha .icone-btn { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); }
-.rodape-login { color: var(--suave); font-size: 13px; margin: 4px 0 0; text-align: center; }
 
 /* ============================================================
    ESTRUTURA DO APP

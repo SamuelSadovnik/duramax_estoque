@@ -25,15 +25,6 @@ export default function Login({ onEntrar }: { onEntrar: (u: Usuario) => void }) 
       <section className="login-farol" aria-hidden>
         <div className="facho" />
         <img className="farol-simbolo" src="/farol.png" alt="" />
-        <div className="login-tese">
-          <span className="sobre claro">Duramax Tintas &amp; Vernizes</span>
-          <p>Cada galão devolvido,<br />com destino certo.</p>
-          <ul>
-            <li><b>Sem definição</b> ainda não se sabe se volta</li>
-            <li><b>A caminho</b> vai voltar pra fábrica</li>
-            <li><b>Em estoque</b> chegou e a nota foi lançada</li>
-          </ul>
-        </div>
       </section>
 
       <section className="login-painel">
@@ -61,7 +52,6 @@ export default function Login({ onEntrar }: { onEntrar: (u: Usuario) => void }) 
           <button className="btn primario grande" disabled={entrando}>
             {entrando ? 'Entrando…' : <>Entrar <ArrowRight size={18} /></>}
           </button>
-          <p className="rodape-login">Esqueceu a senha? Peça a um administrador para redefinir.</p>
         </form>
       </section>
     </div>
