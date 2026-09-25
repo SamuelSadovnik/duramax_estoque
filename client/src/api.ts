@@ -23,6 +23,8 @@ export async function api<T = unknown>(caminho: string, opcoes: { method?: strin
     if (r.status === 401 && caminho !== '/login' && caminho !== '/me') aoExpirar();
     throw new ErroApi(r.status, dados.erro ?? `Erro ${r.status}`);
   }
+  if (r.ok && (opcoes.method ?? (opcoes.body ? 'POST' : 'GET')) !== 'GET' && !['/login', '/logout'].includes(caminho))
+    window.dispatchEvent(new Event('dados-alterados'));
   return dados as T;
 }
 

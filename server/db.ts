@@ -201,9 +201,19 @@ CREATE INDEX IF NOT EXISTS ix_tentativas_ip ON tentativas_login (ip, momento);
 UPDATE usuarios SET trocar_senha = 0 WHERE trocar_senha <> 0;
 `;
 
+/** Aumente este número sempre que mudar o SCHEMA acima */
+const VERSAO_SCHEMA = '4';
+
 async function iniciar() {
   driver = await criarDriver();
+  // Caminho rápido: se o banco já está na versão atual, é 1 consulta só (importante na Vercel, que "acorda" a toda hora)
+  try {
+    const v = await sql1<{ valor: string }>(`SELECT valor FROM meta WHERE chave = 'schema'`);
+    if (v?.valor === VERSAO_SCHEMA) return;
+  } catch { /* primeira vez: a tabela meta ainda não existe */ }
+
   for (const cmd of SCHEMA.split(';').map((s) => s.trim()).filter(Boolean)) await sql(cmd);
+  await sql('CREATE TABLE IF NOT EXISTS meta (chave TEXT PRIMARY KEY, valor TEXT NOT NULL)');
 
   const conta = async (t: string) => (await sql1<{ n: number }>(`SELECT COUNT(*)::int AS n FROM ${t}`))!.n;
   if (!(await conta('usuarios'))) {
@@ -218,6 +228,13 @@ async function iniciar() {
     await sql(`INSERT INTO produtos (codigo, descricao, unidade, cod_barras, embalagem, criado_em, atualizado_em)
       VALUES ($1,$2,$3,$4,$5,$6,$6)`, ['00170', 'DURAFORT METAIS DF BRANCO PURO BR 3,6 L', 'GALÃO 3,6 L', '1000000001709', 4, agora()]);
   }
+  await sql(`INSERT INTO meta (chave, valor) VALUES ('schema', $1) ON CONFLICT (chave) DO UPDATE SET valor = EXCLUDED.valor`, [VERSAO_SCHEMA]);
+}
+
+/** Servidor do banco (sem usuário/senha), para diagnóstico de região */
+export function hostBanco(): string | null {
+  const v = variavelBanco && process.env[variavelBanco];
+  try { return v ? new URL(v).hostname : null; } catch { return null; }
 }
 
 let pronto: Promise<void> | null = null;

@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useApi, useAtrasado } from '../dados';
+import { LinhasCarregando } from '../components/Carregando';
 import { api, qs } from '../api';
 import { baixarCsv, dataHora } from '../format';
 import type { Log } from '../types';
@@ -9,14 +11,12 @@ import Cabecalho from '../components/Cabecalho';
 const ENT: Record<string, string> = { sac: 'SAC', produto: 'Produto / estoque', usuario: 'Usuário', motivo: 'Motivo' };
 
 export default function Logs() {
-  const [logs, setLogs] = useState<Log[]>([]);
   const [f, setF] = useState({ entidade: '', texto: '', de: '', ate: '' });
   const [detalhe, setDetalhe] = useState<number | null>(null);
 
-  useEffect(() => {
-    const t = setTimeout(() => api<Log[]>(`/logs${qs(f)}`).then(setLogs), 250);
-    return () => clearTimeout(t);
-  }, [f]);
+  const fAtrasado = useAtrasado(f);
+  const { dados: logsD } = useApi<Log[]>(`/logs${qs(fAtrasado)}`);
+  const logs = logsD ?? [];
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setF({ ...f, [k]: e.target.value });
 
   return (
@@ -48,7 +48,8 @@ export default function Logs() {
                 <td>{l.detalhes}</td>
               </tr>
             ))}
-            {!logs.length && <tr><td colSpan={5} className="vazio">Nenhum registro</td></tr>}
+            {!logsD && <LinhasCarregando colunas={5} linhas={6} />}
+            {logsD && !logs.length && <tr><td colSpan={5} className="vazio">Nenhum registro</td></tr>}
           </tbody>
         </table>
       </div>

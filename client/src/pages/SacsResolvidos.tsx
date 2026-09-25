@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useApi, useAtrasado } from '../dados';
+import { LinhasCarregando } from '../components/Carregando';
 import { api, qs } from '../api';
 import { baixarCsv, data, dataHora, num } from '../format';
 import { STATUS_LABEL, type Motivo, type Produto, type Sac } from '../types';
@@ -8,20 +10,14 @@ import Cabecalho from '../components/Cabecalho';
 import SacDetalheModal from '../components/SacDetalheModal';
 
 export default function SacsResolvidos() {
-  const [sacs, setSacs] = useState<Sac[]>([]);
-  const [produtos, setProdutos] = useState<Produto[]>([]);
-  const [motivos, setMotivos] = useState<Motivo[]>([]);
   const [f, setF] = useState({ status: '', cliente: '', produto_id: '', motivo_id: '', de: '', ate: '' });
   const [detalhe, setDetalhe] = useState<number | null>(null);
 
-  useEffect(() => {
-    api<Produto[]>('/produtos').then(setProdutos);
-    api<Motivo[]>('/motivos').then(setMotivos);
-  }, []);
-  useEffect(() => {
-    const t = setTimeout(() => api<Sac[]>(`/sacs${qs({ grupo: 'resolvidos', ...f })}`).then(setSacs), 250);
-    return () => clearTimeout(t);
-  }, [f]);
+  const fAtrasado = useAtrasado(f);
+  const { dados: sacsD } = useApi<Sac[]>(`/sacs${qs({ grupo: 'resolvidos', ...fAtrasado })}`);
+  const produtos = useApi<Produto[]>('/produtos').dados ?? [];
+  const motivos = useApi<Motivo[]>('/motivos').dados ?? [];
+  const sacs = sacsD ?? [];
 
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setF({ ...f, [k]: e.target.value });
   const recebido = sacs.filter((s) => s.status === 'RECEBIDO').reduce((a, s) => a + (s.qtd_recebida ?? 0), 0);
@@ -79,7 +75,8 @@ export default function SacsResolvidos() {
                 <td className="n">{s.dias}</td>
               </tr>
             ))}
-            {!sacs.length && <tr><td colSpan={10} className="vazio">Nenhum SAC resolvido nesse filtro</td></tr>}
+            {!sacsD && <LinhasCarregando colunas={10} />}
+            {sacsD && !sacs.length && <tr><td colSpan={10} className="vazio">Nenhum SAC resolvido nesse filtro</td></tr>}
           </tbody>
         </table>
       </div>

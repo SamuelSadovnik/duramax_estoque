@@ -256,3 +256,10 @@ legend { font-weight: 500; font-size: 13px; margin-bottom: 6px; padding: 0; }
 .modal .sucesso p { color: var(--suave); margin: 2px 0 0; }
 .modal .sucesso .botoes { margin-top: 18px; }
 .modal .form .botoes { border-top: 1px solid var(--linha); padding-top: 16px; margin-top: 4px; }
+
+/* ---------------- Carregando ---------------- */
+.esqueleto { display: inline-block; height: 12px; max-width: 100%; border-radius: 4px; background: #e9ecf1; vertical-align: middle; animation: esqueleto 1.4s ease-in-out infinite; }
+.etapa-num .esqueleto { height: 26px; }
+tr.linha-carregando:hover td { background: none; }
+@keyframes esqueleto { 50% { opacity: .5; } }
+@media (prefers-reduced-motion: reduce) { .esqueleto { animation: none; } }

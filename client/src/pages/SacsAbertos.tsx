@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useApi } from '../dados';
+import { LinhasCarregando } from '../components/Carregando';
 import { Link } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import Cabecalho from '../components/Cabecalho';
@@ -12,15 +14,13 @@ import SacDetalheModal from '../components/SacDetalheModal';
 type Acao = 'chegou' | 'nao-volta' | 'cancelar';
 
 export default function SacsAbertos() {
-  const [sacs, setSacs] = useState<Sac[]>([]);
+  const { dados: sacsD, recarregar: carregar } = useApi<Sac[]>('/sacs?grupo=abertos');
+  const sacs = sacsD ?? [];
   const [busca, setBusca] = useState('');
   const [acao, setAcao] = useState<{ sac: Sac; tipo: Acao } | null>(null);
   const [detalhe, setDetalhe] = useState<number | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
 
-  const carregar = useCallback(() => { api<Sac[]>('/sacs?grupo=abertos').then(setSacs); }, []);
-  useEffect(carregar, [carregar]);
-  useEffect(() => { window.addEventListener('sac-alterado', carregar); return () => window.removeEventListener('sac-alterado', carregar); }, [carregar]);
   const { lancarSac } = useAuth();
 
   const filtrar = (s: Sac) => !busca || `${s.numero} ${s.cliente} ${s.produto_descricao}`.toLowerCase().includes(busca.toLowerCase());
@@ -71,7 +71,8 @@ export default function SacsAbertos() {
               <button className="btn mini sec" onClick={() => setAcao({ sac: s, tipo: 'nao-volta' })}>Não vai voltar</button>
               <button className="btn mini fantasma" onClick={() => setAcao({ sac: s, tipo: 'cancelar' })}>Cancelar</button>
             </>))}
-            {!aCaminho.length && <tr><td colSpan={8} className="vazio">Nenhum material a caminho</td></tr>}
+            {!sacsD && <LinhasCarregando colunas={8} linhas={2} />}
+            {sacsD && !aCaminho.length && <tr><td colSpan={8} className="vazio">Nenhum material a caminho</td></tr>}
           </tbody>
         </table>
       </div>
@@ -88,12 +89,12 @@ export default function SacsAbertos() {
               <button className="btn mini sec" onClick={() => setAcao({ sac: s, tipo: 'chegou' })}>Já chegou</button>
               <button className="btn mini fantasma" onClick={() => setAcao({ sac: s, tipo: 'cancelar' })}>Cancelar</button>
             </>))}
-            {!semDef.length && <tr><td colSpan={8} className="vazio">Tudo definido</td></tr>}
+            {!sacsD && <LinhasCarregando colunas={8} linhas={2} />}
+            {sacsD && !semDef.length && <tr><td colSpan={8} className="vazio">Tudo definido</td></tr>}
           </tbody>
         </table>
       </div>
 
-      {!sacs.length && <p className="ajuda">Nenhum SAC em aberto. <button className="link" onClick={lancarSac}>Lançar SAC</button></p>}
 
       {acao && (
         <AcoesSac sac={acao.sac} acao={acao.tipo} onFechar={() => setAcao(null)}

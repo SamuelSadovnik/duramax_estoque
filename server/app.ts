@@ -1,5 +1,5 @@
 import express, { type NextFunction, type Request, type Response } from 'express';
-import { agora, bancoPronto, ErroBanco, registrarLog, sql, sql1, transacao, variavelBanco, type UsuarioSessao } from './db';
+import { agora, bancoPronto, ErroBanco, hostBanco, registrarLog, sql, sql1, transacao, variavelBanco, type UsuarioSessao } from './db';
 import { conferirSenha, HASH_FALSO, hashSenha, hashToken, novoToken, precisaRehash, validarSenha } from './auth';
 
 type Req = Request & { usuario?: UsuarioSessao };
@@ -33,9 +33,14 @@ app.use('/api', (req, _res, next) => {
 // Diagnóstico: abra /api/saude no navegador para ver se o banco está conectado
 app.get('/api/saude', async (_req, res) => {
   try {
+    const t0 = Date.now();
     await bancoPronto();
+    const t1 = Date.now();
     const r = await sql1<{ usuarios: number }>('SELECT COUNT(*)::int AS usuarios FROM usuarios');
-    res.json({ ok: true, banco: variavelBanco, usuarios: r?.usuarios, hora: agora() });
+    res.json({
+      ok: true, banco: variavelBanco, servidor_banco: hostBanco(), regiao_vercel: process.env.VERCEL_REGION ?? null,
+      usuarios: r?.usuarios, tempo_inicio_ms: t1 - t0, tempo_consulta_ms: Date.now() - t1, hora: agora(),
+    });
   } catch (e) {
     res.status(503).json({ ok: false, banco: variavelBanco, erro: (e as Error).message });
   }

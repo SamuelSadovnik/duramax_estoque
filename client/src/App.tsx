@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { Boxes, CheckCheck, History, KeyRound, LogOut, Plus, Settings2, Truck } from 'lucide-react';
 import { api, onSessaoExpirada } from './api';
+import { limparCache, preCarregar } from './dados';
 import type { Usuario } from './types';
 import Login from './pages/Login';
 import Estoque from './pages/Estoque';
@@ -29,9 +30,11 @@ export default function App() {
     api<Usuario>('/me').then(setUsuario).catch(() => setUsuario(null)).finally(() => setCarregando(false));
   }, []);
   useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
+  // Assim que entra, já busca os dados das telas principais
+  useEffect(() => { if (usuario) preCarregar('/produtos', '/estoque/movimentacoes', '/sacs?grupo=abertos', '/motivos', '/clientes'); }, [usuario]);
 
   const sair = () => {
-    api('/logout', { method: 'POST' }).catch(() => {}).finally(() => setUsuario(null));
+    api('/logout', { method: 'POST' }).catch(() => {}).finally(() => { limparCache(); setUsuario(null); });
   };
 
   if (carregando) return <div className="carregando"><span className="pulso" /></div>;

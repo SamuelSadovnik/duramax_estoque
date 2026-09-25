@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Modal from './Modal';
+import { useApi } from '../dados';
 import { api } from '../api';
 import { num } from '../format';
 import type { Motivo, Produto, Sac } from '../types';
@@ -27,15 +28,18 @@ export default function LancarSacModal({ onFechar }: { onFechar: () => void }) {
   const [salvo, setSalvo] = useState<Sac | null>(null);
   const [salvando, setSalvando] = useState(false);
 
+  // Usa o que já está em cache (abre na hora) e atualiza por trás
+  const produtosD = useApi<Produto[]>('/produtos').dados;
+  const motivosD = useApi<Motivo[]>('/motivos').dados;
+  const clientesD = useApi<string[]>('/clientes').dados;
   useEffect(() => {
-    api<Produto[]>('/produtos').then((ps) => {
-      const ativos = ps.filter((p) => p.ativo);
-      setProdutos(ativos);
-      if (ativos.length === 1) setProdutoId(String(ativos[0].id));
-    });
-    api<Motivo[]>('/motivos').then((ms) => setMotivos(ms.filter((m) => m.ativo)));
-    api<string[]>('/clientes').then(setClientes);
-  }, []);
+    if (!produtosD) return;
+    const ativos = produtosD.filter((p) => p.ativo);
+    setProdutos(ativos);
+    if (ativos.length === 1) setProdutoId((atual) => atual || String(ativos[0].id));
+  }, [produtosD]);
+  useEffect(() => { if (motivosD) setMotivos(motivosD.filter((m) => m.ativo)); }, [motivosD]);
+  useEffect(() => { if (clientesD) setClientes(clientesD); }, [clientesD]);
 
   const produto = useMemo(() => produtos.find((p) => String(p.id) === produtoId), [produtos, produtoId]);
   const alternar = (id: number) => setMotivoIds((l) => (l.includes(id) ? l.filter((x) => x !== id) : [...l, id]));
@@ -57,7 +61,6 @@ export default function LancarSacModal({ onFechar }: { onFechar: () => void }) {
         body: { cliente, produto_id: Number(produtoId), quantidade, motivo_ids: motivoIds, volta, resolucao, nf_venda: nfVenda, observacao: obs },
       });
       setSalvo(s);
-      window.dispatchEvent(new Event('sac-alterado')); // as telas abertas recarregam os números
       setClientes((c) => (c.includes(s.cliente) ? c : [...c, s.cliente].sort()));
     } catch (err) { setErro((err as Error).message); } finally { setSalvando(false); }
   }

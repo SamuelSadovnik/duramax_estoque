@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useApi } from '../dados';
+import { Esqueleto, LinhasCarregando } from '../components/Carregando';
 import { Link } from 'react-router-dom';
 import { Download, Plus } from 'lucide-react';
 import Cabecalho from '../components/Cabecalho';
@@ -13,20 +15,16 @@ import SacDetalheModal from '../components/SacDetalheModal';
 const TIPO: Record<Movimentacao['tipo'], string> = { ENTRADA_SAC: 'Entrada SAC', AJUSTE: 'Ajuste', ESTORNO: 'Estorno' };
 
 export default function Estoque() {
-  const [produtos, setProdutos] = useState<Produto[]>([]);
-  const [movs, setMovs] = useState<Movimentacao[]>([]);
   const [filtro, setFiltro] = useState('');
+  const { dados: produtosD } = useApi<Produto[]>('/produtos');
+  const { dados: movsD } = useApi<Movimentacao[]>(`/estoque/movimentacoes${qs({ produto_id: filtro })}`);
+  const produtos = produtosD ?? [];
+  const movs = movsD ?? [];
   const [busca, setBusca] = useState('');
   const [ajuste, setAjuste] = useState<Produto | null>(null);
   const [estorno, setEstorno] = useState<Movimentacao | null>(null);
   const [sacAberto, setSacAberto] = useState<number | null>(null);
 
-  const carregar = useCallback(() => {
-    api<Produto[]>('/produtos').then(setProdutos);
-    api<Movimentacao[]>(`/estoque/movimentacoes${qs({ produto_id: filtro })}`).then(setMovs);
-  }, [filtro]);
-  useEffect(carregar, [carregar]);
-  useEffect(() => { window.addEventListener('sac-alterado', carregar); return () => window.removeEventListener('sac-alterado', carregar); }, [carregar]);
   const { lancarSac } = useAuth();
 
   const lista = produtos.filter((p) => !busca || `${p.codigo} ${p.descricao}`.toLowerCase().includes(busca.toLowerCase()));
@@ -41,17 +39,17 @@ export default function Estoque() {
       <section className="fluxo" aria-label="Fluxo do material devolvido">
         <Link to="/sac/abertos" className="etapa ind">
           <span className="etapa-rotulo"><span className="ponto ind" />Sem definição</span>
-          <strong className="etapa-num">{num(tot.ind)}</strong>
+          <strong className="etapa-num">{produtosD ? num(tot.ind) : <Esqueleto largura={44} />}</strong>
           <span className="etapa-sub">aguardando decisão se volta</span>
         </Link>
         <Link to="/sac/abertos" className="etapa cam">
           <span className="etapa-rotulo"><span className="ponto cam" />A caminho</span>
-          <strong className="etapa-num">{num(tot.cam)}</strong>
+          <strong className="etapa-num">{produtosD ? num(tot.cam) : <Esqueleto largura={44} />}</strong>
           <span className="etapa-sub">vai voltar pra fábrica</span>
         </Link>
         <div className="etapa ok">
           <span className="etapa-rotulo"><span className="ponto ok" />Em estoque</span>
-          <strong className="etapa-num">{num(tot.saldo)}</strong>
+          <strong className="etapa-num">{produtosD ? num(tot.saldo) : <Esqueleto largura={44} />}</strong>
           <span className="etapa-sub">chegou e a nota foi lançada</span>
         </div>
       </section>
@@ -83,7 +81,8 @@ export default function Estoque() {
                 </td>
               </tr>
             ))}
-            {!lista.length && <tr><td colSpan={7} className="vazio">Nenhum produto</td></tr>}
+            {!produtosD && <LinhasCarregando colunas={7} linhas={1} />}
+            {produtosD && !lista.length && <tr><td colSpan={7} className="vazio">Nenhum produto</td></tr>}
           </tbody>
         </table>
       </div>
@@ -117,13 +116,14 @@ export default function Estoque() {
                 </td>
               </tr>
             ))}
-            {!movs.length && <tr><td colSpan={9} className="vazio">Nenhuma movimentação ainda</td></tr>}
+            {!movsD && <LinhasCarregando colunas={9} />}
+            {movsD && !movs.length && <tr><td colSpan={9} className="vazio">Nenhuma movimentação ainda</td></tr>}
           </tbody>
         </table>
       </div>
 
-      {ajuste && <AjusteModal produto={ajuste} onFechar={() => setAjuste(null)} onFeito={() => { setAjuste(null); carregar(); }} />}
-      {estorno && <EstornoModal mov={estorno} onFechar={() => setEstorno(null)} onFeito={() => { setEstorno(null); carregar(); }} />}
+      {ajuste && <AjusteModal produto={ajuste} onFechar={() => setAjuste(null)} onFeito={() => setAjuste(null)} />}
+      {estorno && <EstornoModal mov={estorno} onFechar={() => setEstorno(null)} onFeito={() => setEstorno(null)} />}
       {sacAberto && <SacDetalheModal id={sacAberto} onFechar={() => setSacAberto(null)} />}
     </div>
   );
