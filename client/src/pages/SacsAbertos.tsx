@@ -2,9 +2,7 @@ import { useState } from 'react';
 import { useApi } from '../dados';
 import { LinhasCarregando } from '../components/Carregando';
 import { Link } from 'react-router-dom';
-import { Plus } from 'lucide-react';
 import Cabecalho from '../components/Cabecalho';
-import { useAuth } from '../App';
 import { api } from '../api';
 import { data, num } from '../format';
 import type { Sac } from '../types';
@@ -21,7 +19,6 @@ export default function SacsAbertos() {
   const [detalhe, setDetalhe] = useState<number | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
 
-  const { lancarSac } = useAuth();
 
   const filtrar = (s: Sac) => !busca || `${s.numero} ${s.cliente} ${s.produto_descricao}`.toLowerCase().includes(busca.toLowerCase());
   const aCaminho = sacs.filter((s) => s.status === 'AGUARDANDO' && filtrar(s));
@@ -54,10 +51,7 @@ export default function SacsAbertos() {
     <div className="pagina">
       <Cabecalho titulo="SACs em aberto"
         descricao="Material que ainda não chegou ou que ainda não se sabe se volta."
-        acoes={<>
-          <input className="busca" placeholder="Buscar SAC, cliente ou produto…" value={busca} onChange={(e) => setBusca(e.target.value)} />
-          <button className="btn primario" onClick={lancarSac}><Plus size={18} /> Lançar SAC</button>
-        </>} />
+        acoes={<input className="busca" placeholder="Buscar SAC, cliente ou produto…" value={busca} onChange={(e) => setBusca(e.target.value)} />} />
       {aviso && <div className="alerta ok" onClick={() => setAviso(null)}>{aviso}</div>}
 
       <div className="cartao">

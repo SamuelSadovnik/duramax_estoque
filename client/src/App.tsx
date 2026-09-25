@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom';
-import { Boxes, CheckCheck, History, KeyRound, LogOut, Plus, Settings2, Truck } from 'lucide-react';
+import { Boxes, CheckCheck, History, KeyRound, LogOut, Settings2, Truck } from 'lucide-react';
 import { api, onSessaoExpirada } from './api';
 import { limparCache, preCarregar } from './dados';
 import type { Usuario } from './types';
@@ -52,7 +52,6 @@ export default function App() {
           <nav className="lateral-nav" aria-label="Menu principal">
             <div className="nav-grupo">Operação</div>
             <NavLink to="/" end><Boxes size={18} /> Estoque</NavLink>
-            <button className="nav-botao" onClick={() => setLancando(true)}><Plus size={18} /> Lançar SAC</button>
             <NavLink to="/sac/abertos"><Truck size={18} /> SACs em aberto</NavLink>
             <NavLink to="/sac/resolvidos"><CheckCheck size={18} /> SACs resolvidos</NavLink>
             <div className="nav-grupo">Controle</div>
