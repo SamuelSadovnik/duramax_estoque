@@ -7,12 +7,12 @@
     "dev": "concurrently -n api,web -c blue,green \"npm:dev:api\" \"npm:dev:web\"",
     "dev:api": "tsx watch --env-file-if-exists=.env server/local.ts",
     "dev:web": "vite",
-    "build": "tsc -p tsconfig.json --noEmit && vite build",
+    "build": "tsc -p tsconfig.json && tsc -p client/tsconfig.json && vite build",
     "start": "tsx --env-file-if-exists=.env server/local.ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json && tsc -p client/tsconfig.json"
   },
   "engines": {
-    "node": ">=22.9"
+    "node": "22.x || 24.x"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
