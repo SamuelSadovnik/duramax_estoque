@@ -16,8 +16,11 @@ const TIPO: Record<Movimentacao['tipo'], string> = { ENTRADA_SAC: 'Entrada SAC',
 
 export default function Estoque() {
   const [filtro, setFiltro] = useState('');
-  const { dados: produtosD } = useApi<Produto[]>('/produtos');
-  const { dados: movsD } = useApi<Movimentacao[]>(`/estoque/movimentacoes${qs({ produto_id: filtro })}`);
+  // Um pedido só traz produtos e movimentações
+  const { dados: painel } = useApi<{ produtos: Produto[]; movimentacoes: Movimentacao[] }>(`/estoque/painel${qs({ produto_id: filtro })}`);
+  const { dados: painelGeral } = useApi<{ produtos: Produto[]; movimentacoes: Movimentacao[] }>(filtro ? '/estoque/painel' : null);
+  const produtosD = painel?.produtos ?? painelGeral?.produtos;
+  const movsD = painel?.movimentacoes;
   const produtos = produtosD ?? [];
   const movs = movsD ?? [];
   const [busca, setBusca] = useState('');

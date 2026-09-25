@@ -23,6 +23,12 @@ app.use('/api', (_req, res, next) => {
   next();
 });
 app.use(express.json({ limit: '50kb' }));
+app.use('/api', (_req, res, next) => {
+  const t0 = performance.now();
+  const escrever = res.json.bind(res);
+  res.json = (corpo: unknown) => { res.setHeader('Server-Timing', `total;dur=${(performance.now() - t0).toFixed(0)}`); return escrever(corpo); };
+  next();
+});
 
 // Proteção contra CSRF: toda requisição que altera dados precisa do cabeçalho enviado pelo próprio sistema
 app.use('/api', (req, _res, next) => {
@@ -133,18 +139,32 @@ app.post('/api/login', async (req, res) => {
   res.json({ usuario: sessao });
 });
 
+/*
+ * Cache curto das sessões já conferidas (30 s, só na memória desta instância).
+ * Consultas (GET) usam o cache e economizam uma ida ao banco; qualquer alteração (POST/PUT) sempre confere no banco.
+ */
+const cacheSessao = new Map<string, { u: UsuarioSessao; ate: number }>();
+const CACHE_SESSAO_MS = 30 * 1000;
+function esquecerSessoes(usuarioId?: number, token?: string) {
+  for (const [k, v] of cacheSessao) if (k === token || v.u.id === usuarioId) cacheSessao.delete(k);
+}
+
 app.use('/api', async (req: Req, _res, next) => {
   try {
     const token = lerCookie(req, COOKIE);
     if (!token) return next(new ErroApp(401, 'Faça login para continuar.'));
     const agoraMs = Date.now();
     const th = hashToken(token);
+    const emCache = cacheSessao.get(th);
+    if (req.method === 'GET' && emCache && emCache.ate > agoraMs) { req.usuario = emCache.u; return next(); }
     const u = await sql1(`SELECT u.id, u.nome, u.login, u.perfil, u.trocar_senha, s.ultimo_uso FROM sessoes s
       JOIN usuarios u ON u.id = s.usuario_id
       WHERE s.token = $1 AND u.ativo = 1 AND s.expira_em > $2 AND s.ultimo_uso > $3`, [th, agoraMs, agoraMs - SESSAO_OCIOSA_MS]);
     if (!u) return next(new ErroApp(401, 'Sua sessão expirou. Faça login de novo.'));
     if (agoraMs - u.ultimo_uso > 5 * 60 * 1000) await sql('UPDATE sessoes SET ultimo_uso = $1 WHERE token = $2', [agoraMs, th]);
     req.usuario = { ...semSenha(u), sessao: th };
+    cacheSessao.set(th, { u: req.usuario, ate: agoraMs + CACHE_SESSAO_MS });
+    if (cacheSessao.size > 500) cacheSessao.clear();
     next();
   } catch (e) { next(e); }
 });
@@ -154,6 +174,7 @@ const soAdmin = (req: Req, _res: Response, next: NextFunction) =>
 app.get('/api/me', (req: Req, res) => { const { sessao, ...u } = usuario(req); res.json(u); });
 app.post('/api/logout', async (req: Req, res) => {
   await sql('DELETE FROM sessoes WHERE token = $1', [usuario(req).sessao]);
+  esquecerSessoes(undefined, usuario(req).sessao);
   gravarCookie(req, res, '', 0);
   res.json({ ok: true });
 });
@@ -170,6 +191,7 @@ app.post('/api/minha-senha', async (req: Req, res) => {
     await sql('UPDATE usuarios SET senha_hash = $1, trocar_senha = 0, senha_alterada_em = $2 WHERE id = $3', [hashSenha(nova), agora(), u.id]);
     // Encerra as outras sessões abertas desse usuário (outros computadores)
     await sql('DELETE FROM sessoes WHERE usuario_id = $1 AND token <> $2', [u.id, u.sessao]);
+    esquecerSessoes(u.id);
     await registrarLog(u, 'usuario', u.id, 'Alterou a própria senha', 'Outras sessões encerradas');
   });
   res.json({ ok: true });
@@ -218,6 +240,7 @@ app.put('/api/usuarios/:id', soAdmin, async (req: Req, res) => {
       mud.push('senha redefinida');
     }
     if (!ativo || perfil !== at.perfil) await sql('DELETE FROM sessoes WHERE usuario_id = $1', [id]);
+    esquecerSessoes(id);
     if (mud.length) await registrarLog(u, 'usuario', id, 'Alterou usuário', `${at.login}: ${mud.join('; ')}`);
   });
   res.json({ ok: true });
@@ -447,6 +470,21 @@ app.post('/api/sacs/:id/cancelar', async (req: Req, res) => {
 });
 
 // ---------------- Estoque ----------------
+const SQL_PRODUTOS = `SELECT p.*, ${SQL_SALDO} AS saldo,
+      COALESCE((SELECT SUM(s.quantidade) FROM sacs s WHERE s.produto_id = p.id AND s.status = 'AGUARDANDO'), 0) AS a_caminho,
+      COALESCE((SELECT SUM(s.quantidade) FROM sacs s WHERE s.produto_id = p.id AND s.status = 'ABERTO'), 0) AS sem_definicao
+    FROM produtos p ORDER BY p.descricao`;
+const SQL_MOVS = (filtro: boolean) => `SELECT m.*, p.codigo AS produto_codigo, p.descricao AS produto_descricao, u.nome AS usuario_nome,
+      s.numero AS sac_numero, s.cliente AS sac_cliente
+    FROM movimentacoes m JOIN produtos p ON p.id = m.produto_id JOIN usuarios u ON u.id = m.usuario_id
+    LEFT JOIN sacs s ON s.id = m.sac_id ${filtro ? 'WHERE m.produto_id = $1' : ''} ORDER BY m.id DESC LIMIT 500`;
+
+app.get('/api/estoque/painel', async (req, res) => {
+  const pid = req.query.produto_id ? Number(req.query.produto_id) : null;
+  const [produtos, movimentacoes] = await Promise.all([sql(SQL_PRODUTOS), sql(SQL_MOVS(!!pid), pid ? [pid] : [])]);
+  res.json({ produtos, movimentacoes });
+});
+
 app.get('/api/estoque/movimentacoes', async (req, res) => {
   const pid = req.query.produto_id ? Number(req.query.produto_id) : null;
   res.json(await sql(`SELECT m.*, p.codigo AS produto_codigo, p.descricao AS produto_descricao, u.nome AS usuario_nome,

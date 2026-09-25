@@ -31,7 +31,7 @@ export default function App() {
   }, []);
   useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
   // Assim que entra, já busca os dados das telas principais
-  useEffect(() => { if (usuario) preCarregar('/produtos', '/estoque/movimentacoes', '/sacs?grupo=abertos', '/motivos', '/clientes'); }, [usuario]);
+  useEffect(() => { if (usuario) preCarregar('/estoque/painel', '/sacs?grupo=abertos', '/produtos', '/motivos', '/clientes'); }, [usuario]);
 
   const sair = () => {
     api('/logout', { method: 'POST' }).catch(() => {}).finally(() => { limparCache(); setUsuario(null); });
