@@ -14,6 +14,7 @@ import { baixarCsv, num } from '../format';
 import type { Movimentacao, Produto } from '../types';
 import Modal from '../components/Modal';
 import Erro from '../components/Erro';
+import MovimentacoesModal from '../components/MovimentacoesModal';
 
 export default function Estoque() {
   const { dados: painel } = useApi<{ produtos: Produto[]; movimentacoes: Movimentacao[] }>('/estoque/painel');
@@ -22,6 +23,7 @@ export default function Estoque() {
   const [busca, setBusca] = useState('');
   const [soComSaldo, setSoComSaldo] = useState(true);
   const [ajuste, setAjuste] = useState<Produto | null>(null);
+  const [movendo, setMovendo] = useState<Produto | null>(null);
 
   const lista = produtos
     .filter((p) => !busca || `${p.codigo} ${p.descricao}`.toLowerCase().includes(busca.toLowerCase()))
@@ -73,7 +75,7 @@ export default function Estoque() {
                 <td>{p.unidade}</td>
                 <td className={`n forte ${p.saldo < 0 ? 'neg' : ''}`} title={p.saldo < 0 ? 'Saiu mais do que entrou: confira as movimentações' : undefined}>{num(p.saldo)}</td>
                 <td className="acoes">
-                  <Link className="btn mini sec" to={`/?produto=${p.id}`}>Movimentações</Link>
+                  <button className="mini sec" onClick={() => setMovendo(p)}>Movimentações</button>
                   <button className="mini sec" onClick={() => setAjuste(p)}>Ajustar</button>
                 </td>
               </tr>
@@ -89,6 +91,7 @@ export default function Estoque() {
       </div>
 
       {ajuste && <AjusteModal produto={ajuste} onFechar={() => setAjuste(null)} onFeito={() => setAjuste(null)} />}
+      {movendo && <MovimentacoesModal produto={movendo} onFechar={() => setMovendo(null)} />}
     </div>
   );
 }

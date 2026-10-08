@@ -15,6 +15,7 @@ import type { Movimentacao, Produto } from '../types';
 import Modal from '../components/Modal';
 import Erro from '../components/Erro';
 import SacDetalheModal from '../components/SacDetalheModal';
+import MovimentacoesModal from '../components/MovimentacoesModal';
 
 const TIPO: Record<Movimentacao['tipo'], string> = { ENTRADA_SAC: 'Entrada SAC', AJUSTE: 'Ajuste', ESTORNO: 'Estorno' };
 
@@ -32,6 +33,7 @@ export default function Retornos() {
   const movs = movsD ?? [];
   const [estorno, setEstorno] = useState<Movimentacao | null>(null);
   const [sacAberto, setSacAberto] = useState<number | null>(null);
+  const [movendo, setMovendo] = useState<Produto | null>(null);
   const { lancarSac } = useAuth();
 
   // Só entra na lista quem ainda tem material voltando
@@ -81,7 +83,7 @@ export default function Retornos() {
                 <td>{p.unidade}</td>
                 <td className="n">{p.sem_definicao ? num(p.sem_definicao) : <span className="suave">—</span>}</td>
                 <td className="n">{p.a_caminho ? num(p.a_caminho) : <span className="suave">—</span>}</td>
-                <td className="acoes"><button className="mini sec" onClick={() => setFiltro(String(p.id))}>Movimentações</button></td>
+                <td className="acoes"><button className="mini sec" onClick={() => setMovendo(p)}>Movimentações</button></td>
               </tr>
             ))}
             {!produtosD && <LinhasCarregando colunas={6} linhas={2} />}
@@ -126,6 +128,7 @@ export default function Retornos() {
       </div>
 
       {estorno && <EstornoModal mov={estorno} onFechar={() => setEstorno(null)} onFeito={() => setEstorno(null)} />}
+      {movendo && <MovimentacoesModal produto={movendo} onFechar={() => setMovendo(null)} />}
       {sacAberto && <SacDetalheModal id={sacAberto} onFechar={() => setSacAberto(null)} />}
     </div>
   );
