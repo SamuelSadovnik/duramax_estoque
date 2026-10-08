@@ -263,3 +263,15 @@ legend { font-weight: 500; font-size: 13px; margin-bottom: 6px; padding: 0; }
 tr.linha-carregando:hover td { background: none; }
 @keyframes esqueleto { 50% { opacity: .5; } }
 @media (prefers-reduced-motion: reduce) { .esqueleto { animation: none; } }
+
+/* ---------------- Resumo da tela de Estoque ---------------- */
+/* Dois números e um atalho: o detalhe por produto está logo abaixo, na tabela. */
+.resumo-estoque {
+  display: flex; align-items: baseline; gap: 32px; flex-wrap: wrap;
+  background: var(--branco); border: 1px solid var(--linha); border-radius: var(--raio);
+  padding: 14px 18px; margin-bottom: 16px;
+}
+.resumo-estoque > div { display: flex; flex-direction: column; gap: 1px; }
+.resumo-estoque span { color: var(--suave); font-size: 12.5px; }
+.resumo-estoque strong { font-family: var(--mono); font-size: 25px; line-height: 1.1; }
+.resumo-estoque .ajuda { margin: 0 0 0 auto; font-size: 13px; }

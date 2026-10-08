@@ -1,11 +1,12 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom';
-import { Boxes, CheckCheck, History, KeyRound, LogOut, Settings2, Truck } from 'lucide-react';
+import { Boxes, CheckCheck, History, KeyRound, LogOut, PackageSearch, Settings2, Truck } from 'lucide-react';
 import { api, onSessaoExpirada } from './api';
 import { limparCache, preCarregar } from './dados';
 import type { Usuario } from './types';
 import Login from './pages/Login';
 import Estoque from './pages/Estoque';
+import Retornos from './pages/Retornos';
 import LancarSacModal from './components/LancarSacModal';
 import SacsAbertos from './pages/SacsAbertos';
 import SacsResolvidos from './pages/SacsResolvidos';
@@ -51,8 +52,9 @@ export default function App() {
 
           <nav className="lateral-nav" aria-label="Menu principal">
             <div className="nav-grupo">Operação</div>
-            <NavLink to="/" end><Boxes size={18} /> Estoque</NavLink>
-            <NavLink to="/sac/abertos"><Truck size={18} /> SACs em aberto</NavLink>
+            <NavLink to="/" end><Truck size={18} /> Retornos de SAC</NavLink>
+            <NavLink to="/estoque"><Boxes size={18} /> Estoque</NavLink>
+            <NavLink to="/sac/abertos"><PackageSearch size={18} /> SACs em aberto</NavLink>
             <NavLink to="/sac/resolvidos"><CheckCheck size={18} /> SACs resolvidos</NavLink>
             <div className="nav-grupo">Controle</div>
             <NavLink to="/logs"><History size={18} /> Histórico</NavLink>
@@ -72,7 +74,8 @@ export default function App() {
 
         <main className="principal">
           <Routes>
-            <Route path="/" element={<Estoque />} />
+            <Route path="/" element={<Retornos />} />
+            <Route path="/estoque" element={<Estoque />} />
             <Route path="/sac/abertos" element={<SacsAbertos />} />
             <Route path="/sac/resolvidos" element={<SacsResolvidos />} />
             <Route path="/logs" element={<Logs />} />
